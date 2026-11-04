@@ -62,8 +62,8 @@ describe('PersonServiceStack', () => {
       { Ref: Match.stringLikeRegexp(`^Api${functionPrefix}FunctionServiceRole`) },
     ];
 
-    it('has one policy per function and nothing else', () => {
-      synth('dev').resourceCountIs('AWS::IAM::Policy', 3);
+    it('has one policy per API function plus the pipe role, and nothing else', () => {
+      synth('dev').resourceCountIs('AWS::IAM::Policy', 4);
     });
 
     it('grants the create-person function only PutItem on the two tables', () => {
@@ -108,6 +108,121 @@ describe('PersonServiceStack', () => {
             },
           ],
         },
+      });
+    });
+  });
+
+  describe('person-created events', () => {
+    const PIPE = 'AWS::Pipes::Pipe';
+    const ref = (logicalIdPrefix: string) => ({
+      Ref: Match.stringLikeRegexp(`^${logicalIdPrefix}`),
+    });
+    const getAtt = (logicalIdPrefix: string, attribute: string) => ({
+      'Fn::GetAtt': [Match.stringLikeRegexp(`^${logicalIdPrefix}`), attribute],
+    });
+
+    it('pipes INSERTs from the persons stream through the enrichment Lambda to the topic', () => {
+      synth('dev').hasResourceProperties(PIPE, {
+        Name: 'person-service-dev-person-created',
+        Source: getAtt('StoragePersons', 'StreamArn'),
+        Enrichment: getAtt('EventsEnrichmentFunction', 'Arn'),
+        Target: ref('EventsTopic'),
+        SourceParameters: {
+          FilterCriteria: { Filters: [{ Pattern: '{"eventName":["INSERT"]}' }] },
+          DynamoDBStreamParameters: {
+            StartingPosition: 'LATEST',
+            MaximumRetryAttempts: 10,
+            OnPartialBatchItemFailure: 'AUTOMATIC_BISECT',
+            DeadLetterConfig: { Arn: getAtt('EventsDeadLetterQueue', 'Arn') },
+          },
+        },
+        LogConfiguration: { Level: 'ERROR', IncludeExecutionData: Match.absent() },
+      });
+    });
+
+    it('creates the pipe only after its role policy', () => {
+      const pipes = synth('dev').findResources(PIPE);
+      const [pipe] = Object.values(pipes) as { DependsOn?: string[] }[];
+      expect(pipe?.DependsOn).toEqual(
+        expect.arrayContaining([expect.stringMatching(/^EventsPipeRoleDefaultPolicy/)]),
+      );
+    });
+
+    it('lets only the pipes service in this account assume the pipe role', () => {
+      synth('dev').hasResourceProperties('AWS::IAM::Role', {
+        AssumeRolePolicyDocument: {
+          Statement: [
+            {
+              Action: 'sts:AssumeRole',
+              Effect: 'Allow',
+              Principal: { Service: 'pipes.amazonaws.com' },
+              Condition: { StringEquals: { 'aws:SourceAccount': Match.anyValue() } },
+            },
+          ],
+        },
+      });
+    });
+
+    it('grants the pipe role only what the pipe uses', () => {
+      synth('dev').hasResourceProperties('AWS::IAM::Policy', {
+        Roles: [ref('EventsPipeRole')],
+        PolicyDocument: {
+          Statement: [
+            {
+              Action: [
+                'dynamodb:DescribeStream',
+                'dynamodb:GetRecords',
+                'dynamodb:GetShardIterator',
+                'dynamodb:ListStreams',
+              ],
+              Effect: 'Allow',
+              Resource: getAtt('StoragePersons', 'StreamArn'),
+            },
+            Match.objectLike({ Action: 'lambda:InvokeFunction' }),
+            { Action: 'sns:Publish', Effect: 'Allow', Resource: ref('EventsTopic') },
+            Match.objectLike({ Action: Match.arrayWith(['sqs:SendMessage']) }),
+            Match.objectLike({ Action: ['logs:CreateLogStream', 'logs:PutLogEvents'] }),
+          ],
+        },
+      });
+    });
+
+    it('encrypts the dead-letter queue and keeps messages for 14 days', () => {
+      synth('dev').hasResourceProperties('AWS::SQS::Queue', {
+        SqsManagedSseEnabled: true,
+        MessageRetentionPeriod: 14 * 24 * 60 * 60,
+      });
+    });
+
+    it('publishes the topic ARN in SSM for consumers', () => {
+      synth('dev').hasResourceProperties('AWS::SSM::Parameter', {
+        Name: '/person-service/dev/person-created-topic-arn',
+        Value: ref('EventsTopic'),
+      });
+    });
+
+    it('only accepts publishes over TLS', () => {
+      synth('dev').hasResourceProperties('AWS::SNS::TopicPolicy', {
+        PolicyDocument: {
+          Statement: [
+            Match.objectLike({
+              Effect: 'Deny',
+              Action: 'sns:Publish',
+              Condition: { Bool: { 'aws:SecureTransport': 'false' } },
+            }),
+          ],
+        },
+      });
+    });
+
+    it.each([
+      ['prod', 'Retain'],
+      ['dev', 'Delete'],
+    ] as const)('names the topic per stage and sets %s removal to %s', (stage, policy) => {
+      synth(stage).hasResource('AWS::SNS::Topic', {
+        Properties: { TopicName: `person-service-${stage}-person-created` },
+        DeletionPolicy: policy,
+        UpdateReplacePolicy: policy,
       });
     });
   });

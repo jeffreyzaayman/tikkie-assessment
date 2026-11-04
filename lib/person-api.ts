@@ -1,19 +1,14 @@
-import { join } from 'node:path';
-import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 import {
   AuthorizationType,
   EndpointType,
   LambdaIntegration,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
-import { Architecture, LoggingFormat, Runtime } from 'aws-cdk-lib/aws-lambda';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import type { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
+import { handlerFunction } from './handler-function';
 import type { PersonStorage } from './person-storage';
 import type { Stage } from './stage';
-
-const HANDLERS_DIR = join(import.meta.dirname, '..', 'src', 'handlers');
 
 export interface PersonApiProps {
   readonly stage: Stage;
@@ -27,29 +22,34 @@ export class PersonApi extends Construct {
   public readonly getPersonFunction: NodejsFunction;
   public readonly listPersonsFunction: NodejsFunction;
 
-  private readonly isProd: boolean;
-
   constructor(scope: Construct, id: string, props: PersonApiProps) {
     super(scope, id);
     const { stage, storage } = props;
-    this.isProd = stage === 'prod';
 
-    this.createPersonFunction = this.handlerFunction('CreatePerson', 'create-person.ts', {
-      PERSONS_TABLE_NAME: storage.persons.tableName,
-      PHONE_NUMBERS_TABLE_NAME: storage.phoneNumbers.tableName,
+    this.createPersonFunction = handlerFunction(this, 'CreatePerson', {
+      stage,
+      entryFile: 'create-person.ts',
+      environment: {
+        PERSONS_TABLE_NAME: storage.persons.tableName,
+        PHONE_NUMBERS_TABLE_NAME: storage.phoneNumbers.tableName,
+      },
     });
     // A transaction of two Puts only needs PutItem; grantWriteData would also allow Update/Delete.
     storage.persons.grant(this.createPersonFunction, 'dynamodb:PutItem');
     storage.phoneNumbers.grant(this.createPersonFunction, 'dynamodb:PutItem');
 
-    this.getPersonFunction = this.handlerFunction('GetPerson', 'get-person.ts', {
-      PERSONS_TABLE_NAME: storage.persons.tableName,
+    this.getPersonFunction = handlerFunction(this, 'GetPerson', {
+      stage,
+      entryFile: 'get-person.ts',
+      environment: { PERSONS_TABLE_NAME: storage.persons.tableName },
     });
     // A single-item lookup; grantReadData would also allow Query/Scan over every person.
     storage.persons.grant(this.getPersonFunction, 'dynamodb:GetItem');
 
-    this.listPersonsFunction = this.handlerFunction('ListPersons', 'list-persons.ts', {
-      PERSONS_TABLE_NAME: storage.persons.tableName,
+    this.listPersonsFunction = handlerFunction(this, 'ListPersons', {
+      stage,
+      entryFile: 'list-persons.ts',
+      environment: { PERSONS_TABLE_NAME: storage.persons.tableName },
     });
     // Paginated Scan of persons only; the phone-number table is never listed.
     storage.persons.grant(this.listPersonsFunction, 'dynamodb:Scan');
@@ -72,27 +72,5 @@ export class PersonApi extends Construct {
 
     const person = persons.addResource('{id}');
     person.addMethod('GET', new LambdaIntegration(this.getPersonFunction));
-  }
-
-  /** A Lambda handler with the service's shared runtime, logging and bundling settings. */
-  private handlerFunction(
-    name: string,
-    entryFile: string,
-    environment: Record<string, string>,
-  ): NodejsFunction {
-    return new NodejsFunction(this, `${name}Function`, {
-      entry: join(HANDLERS_DIR, entryFile),
-      runtime: Runtime.NODEJS_24_X,
-      architecture: Architecture.ARM_64,
-      memorySize: 256,
-      timeout: Duration.seconds(10),
-      loggingFormat: LoggingFormat.JSON,
-      logGroup: new LogGroup(this, `${name}Logs`, {
-        retention: RetentionDays.ONE_MONTH,
-        removalPolicy: this.isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
-      }),
-      environment: { ...environment, NODE_OPTIONS: '--enable-source-maps' },
-      bundling: { minify: true, sourceMap: true },
-    });
   }
 }

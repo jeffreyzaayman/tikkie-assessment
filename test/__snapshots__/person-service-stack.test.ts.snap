@@ -47,6 +47,11 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
         ],
       },
     },
+    "PersonCreatedTopicArn": {
+      "Value": {
+        "Ref": "EventsTopic97220A64",
+      },
+    },
   },
   "Parameters": {
     "BootstrapVersion": {
@@ -858,6 +863,441 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
         },
       },
       "Type": "AWS::Lambda::Permission",
+    },
+    "EventsDeadLetterQueueC3DB07E1": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "MessageRetentionPeriod": 1209600,
+        "SqsManagedSseEnabled": true,
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "EventsDeadLetterQueuePolicy9753C52F": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sqs:*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false",
+                },
+              },
+              "Effect": "Deny",
+              "Principal": {
+                "AWS": "*",
+              },
+              "Resource": {
+                "Fn::GetAtt": [
+                  "EventsDeadLetterQueueC3DB07E1",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "Queues": [
+          {
+            "Ref": "EventsDeadLetterQueueC3DB07E1",
+          },
+        ],
+      },
+      "Type": "AWS::SQS::QueuePolicy",
+    },
+    "EventsEnrichmentFunctionF50DC9E5": {
+      "DependsOn": [
+        "EventsEnrichmentFunctionServiceRole637241B1",
+      ],
+      "Properties": {
+        "Architectures": [
+          "arm64",
+        ],
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-eu-west-1",
+          },
+          "S3Key": "[ASSET_HASH].zip",
+        },
+        "Environment": {
+          "Variables": {
+            "NODE_OPTIONS": "--enable-source-maps",
+          },
+        },
+        "Handler": "index.handler",
+        "LoggingConfig": {
+          "LogFormat": "JSON",
+          "LogGroup": {
+            "Ref": "EventsEnrichmentLogsA3A50584",
+          },
+        },
+        "MemorySize": 256,
+        "Role": {
+          "Fn::GetAtt": [
+            "EventsEnrichmentFunctionServiceRole637241B1",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Timeout": 10,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "EventsEnrichmentFunctionServiceRole637241B1": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "EventsEnrichmentLogsA3A50584": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "RetentionInDays": 30,
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "EventsPipe11815F2B": {
+      "DependsOn": [
+        "EventsPipeRoleDefaultPolicyB7E451DE",
+        "EventsPipeRole3A464140",
+      ],
+      "Properties": {
+        "Description": "Publishes person-created events from the persons table stream",
+        "Enrichment": {
+          "Fn::GetAtt": [
+            "EventsEnrichmentFunctionF50DC9E5",
+            "Arn",
+          ],
+        },
+        "LogConfiguration": {
+          "CloudwatchLogsLogDestination": {
+            "LogGroupArn": {
+              "Fn::GetAtt": [
+                "EventsPipeLogsBF4E4913",
+                "Arn",
+              ],
+            },
+          },
+          "Level": "ERROR",
+        },
+        "Name": "person-service-dev-person-created",
+        "RoleArn": {
+          "Fn::GetAtt": [
+            "EventsPipeRole3A464140",
+            "Arn",
+          ],
+        },
+        "Source": {
+          "Fn::GetAtt": [
+            "StoragePersons0FDB3F49",
+            "StreamArn",
+          ],
+        },
+        "SourceParameters": {
+          "DynamoDBStreamParameters": {
+            "BatchSize": 10,
+            "DeadLetterConfig": {
+              "Arn": {
+                "Fn::GetAtt": [
+                  "EventsDeadLetterQueueC3DB07E1",
+                  "Arn",
+                ],
+              },
+            },
+            "MaximumRetryAttempts": 10,
+            "OnPartialBatchItemFailure": "AUTOMATIC_BISECT",
+            "StartingPosition": "LATEST",
+          },
+          "FilterCriteria": {
+            "Filters": [
+              {
+                "Pattern": "{"eventName":["INSERT"]}",
+              },
+            ],
+          },
+        },
+        "Tags": {
+          "Service": "person-service",
+          "Stage": "dev",
+        },
+        "Target": {
+          "Ref": "EventsTopic97220A64",
+        },
+      },
+      "Type": "AWS::Pipes::Pipe",
+    },
+    "EventsPipeLogsBF4E4913": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "RetentionInDays": 30,
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "EventsPipeRole3A464140": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId",
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "pipes.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "Description": "Role for the person-service-dev-person-created pipe",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "EventsPipeRoleDefaultPolicyB7E451DE": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "dynamodb:DescribeStream",
+                "dynamodb:GetRecords",
+                "dynamodb:GetShardIterator",
+                "dynamodb:ListStreams",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "StoragePersons0FDB3F49",
+                  "StreamArn",
+                ],
+              },
+            },
+            {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "EventsEnrichmentFunctionF50DC9E5",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "EventsEnrichmentFunctionF50DC9E5",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "EventsTopic97220A64",
+              },
+            },
+            {
+              "Action": [
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+                "sqs:SendMessage",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "EventsDeadLetterQueueC3DB07E1",
+                  "Arn",
+                ],
+              },
+            },
+            {
+              "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "EventsPipeLogsBF4E4913",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "EventsPipeRoleDefaultPolicyB7E451DE",
+        "Roles": [
+          {
+            "Ref": "EventsPipeRole3A464140",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "EventsTopic97220A64": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "TopicName": "person-service-dev-person-created",
+      },
+      "Type": "AWS::SNS::Topic",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "EventsTopicArnParameter532555B6": {
+      "Properties": {
+        "Description": "ARN of the person-created SNS topic, for consumers to subscribe to",
+        "Name": "/person-service/dev/person-created-topic-arn",
+        "Tags": {
+          "Service": "person-service",
+          "Stage": "dev",
+        },
+        "Type": "String",
+        "Value": {
+          "Ref": "EventsTopic97220A64",
+        },
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "EventsTopicPolicy2267B130": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false",
+                },
+              },
+              "Effect": "Deny",
+              "Principal": "*",
+              "Resource": {
+                "Ref": "EventsTopic97220A64",
+              },
+              "Sid": "AllowPublishThroughSSLOnly",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "Topics": [
+          {
+            "Ref": "EventsTopic97220A64",
+          },
+        ],
+      },
+      "Type": "AWS::SNS::TopicPolicy",
     },
     "StoragePersons0FDB3F49": {
       "DeletionPolicy": "Delete",
