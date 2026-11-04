@@ -1,0 +1,7 @@
+node_modules/
+cdk.out/
+coverage/
+dist/
+package-lock.json
+test/__snapshots__/
+docs/
