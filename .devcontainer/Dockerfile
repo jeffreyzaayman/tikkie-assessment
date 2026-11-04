@@ -1,5 +1,5 @@
-# Node.js 22 LTS matches the Lambda runtime (nodejs22.x), so local and cloud behave the same.
-FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm
+# Node.js 24 LTS matches the Lambda runtime (nodejs24.x), so local and cloud behave the same.
+FROM mcr.microsoft.com/devcontainers/typescript-node:3-24-bookworm
 
 # AWS CLI v2 (official installer, picks the right CPU architecture)
 RUN apt-get update && apt-get install -y --no-install-recommends unzip jq \

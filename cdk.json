@@ -107,6 +107,8 @@
     "@aws-cdk/aws-ecs:removeEmptyLoadBalancers": true,
     "@aws-cdk/aws-cloudfront:defaultViewerProtocolPolicyRedirectToHttps": true,
     "@aws-cdk/aws-apigateway:logGroupDestinationArnWithoutWildcard": true,
-    "@aws-cdk/aws-stepfunctions-tasks:evaluateExpressionDedicatedFunction": true
+    "@aws-cdk/aws-stepfunctions-tasks:evaluateExpressionDedicatedFunction": true,
+    "@aws-cdk/core:defaultCrossStackReferences": "weak",
+    "@aws-cdk/core:target-partitions": ["aws", "aws-cn"]
   }
 }
