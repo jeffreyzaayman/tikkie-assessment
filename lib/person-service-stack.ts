@@ -1,5 +1,6 @@
-import { Stack, Tags, type StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Stack, Tags, type StackProps } from 'aws-cdk-lib';
 import type { Construct } from 'constructs';
+import { PersonApi } from './person-api';
 import { PersonStorage } from './person-storage';
 import type { Stage } from './stage';
 
@@ -10,6 +11,7 @@ export interface PersonServiceStackProps extends StackProps {
 export class PersonServiceStack extends Stack {
   public readonly stage: Stage;
   public readonly storage: PersonStorage;
+  public readonly api: PersonApi;
 
   constructor(scope: Construct, id: string, props: PersonServiceStackProps) {
     const tags = { Service: 'person-service', Stage: props.stage };
@@ -24,5 +26,8 @@ export class PersonServiceStack extends Stack {
     }
 
     this.storage = new PersonStorage(this, 'Storage', { stage: props.stage });
+    this.api = new PersonApi(this, 'Api', { stage: props.stage, storage: this.storage });
+
+    new CfnOutput(this, 'ApiUrl', { value: this.api.api.url });
   }
 }

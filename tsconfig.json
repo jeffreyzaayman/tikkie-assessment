@@ -17,6 +17,6 @@
     "verbatimModuleSyntax": true,
     "noEmit": true
   },
-  "include": ["bin", "lib", "test", "*.config.ts"],
+  "include": ["bin", "lib", "src", "test", "*.config.ts"],
   "exclude": ["node_modules", "cdk.out"]
 }
