@@ -9,6 +9,89 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
   },
+  "Resources": {
+    "StoragePersons0FDB3F49": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "id",
+            "AttributeType": "S",
+          },
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": [
+          {
+            "AttributeName": "id",
+            "KeyType": "HASH",
+          },
+        ],
+        "Replicas": [
+          {
+            "DeletionProtectionEnabled": false,
+            "PointInTimeRecoverySpecification": {
+              "PointInTimeRecoveryEnabled": true,
+            },
+            "Region": "eu-west-1",
+            "Tags": [
+              {
+                "Key": "Service",
+                "Value": "person-service",
+              },
+              {
+                "Key": "Stage",
+                "Value": "dev",
+              },
+            ],
+          },
+        ],
+        "StreamSpecification": {
+          "StreamViewType": "NEW_IMAGE",
+        },
+      },
+      "Type": "AWS::DynamoDB::GlobalTable",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "StoragePhoneNumbers457D5796": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "phoneNumber",
+            "AttributeType": "S",
+          },
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": [
+          {
+            "AttributeName": "phoneNumber",
+            "KeyType": "HASH",
+          },
+        ],
+        "Replicas": [
+          {
+            "DeletionProtectionEnabled": false,
+            "PointInTimeRecoverySpecification": {
+              "PointInTimeRecoveryEnabled": true,
+            },
+            "Region": "eu-west-1",
+            "Tags": [
+              {
+                "Key": "Service",
+                "Value": "person-service",
+              },
+              {
+                "Key": "Stage",
+                "Value": "dev",
+              },
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::DynamoDB::GlobalTable",
+      "UpdateReplacePolicy": "Delete",
+    },
+  },
   "Rules": {
     "CheckBootstrapVersion": {
       "Assertions": [

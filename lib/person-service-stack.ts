@@ -1,5 +1,6 @@
 import { Stack, Tags, type StackProps } from 'aws-cdk-lib';
 import type { Construct } from 'constructs';
+import { PersonStorage } from './person-storage';
 import type { Stage } from './stage';
 
 export interface PersonServiceStackProps extends StackProps {
@@ -8,6 +9,7 @@ export interface PersonServiceStackProps extends StackProps {
 
 export class PersonServiceStack extends Stack {
   public readonly stage: Stage;
+  public readonly storage: PersonStorage;
 
   constructor(scope: Construct, id: string, props: PersonServiceStackProps) {
     const tags = { Service: 'person-service', Stage: props.stage };
@@ -20,5 +22,7 @@ export class PersonServiceStack extends Stack {
     for (const [key, value] of Object.entries(tags)) {
       Tags.of(this).add(key, value);
     }
+
+    this.storage = new PersonStorage(this, 'Storage', { stage: props.stage });
   }
 }
