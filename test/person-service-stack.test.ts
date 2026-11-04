@@ -48,26 +48,52 @@ describe('PersonServiceStack', () => {
 
   it('requires IAM auth on every API method', () => {
     const template = synth('dev');
+    template.resourceCountIs('AWS::ApiGateway::Method', 2);
     template.hasResourceProperties('AWS::ApiGateway::Method', { HttpMethod: 'POST' });
+    template.hasResourceProperties('AWS::ApiGateway::Method', { HttpMethod: 'GET' });
     template.allResourcesProperties('AWS::ApiGateway::Method', { AuthorizationType: 'AWS_IAM' });
   });
 
-  it('grants the create-person function only PutItem on the two tables', () => {
-    const template = synth('dev');
+  describe('least-privilege table access', () => {
     const tableArn = (logicalIdPrefix: string) => ({
       'Fn::GetAtt': [Match.stringLikeRegexp(`^Storage${logicalIdPrefix}`), 'Arn'],
     });
-    template.resourceCountIs('AWS::IAM::Policy', 1);
-    template.hasResourceProperties('AWS::IAM::Policy', {
-      PolicyDocument: {
-        Statement: [
-          {
-            Action: 'dynamodb:PutItem',
-            Effect: 'Allow',
-            Resource: [tableArn('Persons'), tableArn('PhoneNumbers')],
-          },
-        ],
-      },
+    const roleOf = (functionPrefix: string) => [
+      { Ref: Match.stringLikeRegexp(`^Api${functionPrefix}FunctionServiceRole`) },
+    ];
+
+    it('has one policy per function and nothing else', () => {
+      synth('dev').resourceCountIs('AWS::IAM::Policy', 2);
+    });
+
+    it('grants the create-person function only PutItem on the two tables', () => {
+      synth('dev').hasResourceProperties('AWS::IAM::Policy', {
+        Roles: roleOf('CreatePerson'),
+        PolicyDocument: {
+          Statement: [
+            {
+              Action: 'dynamodb:PutItem',
+              Effect: 'Allow',
+              Resource: [tableArn('Persons'), tableArn('PhoneNumbers')],
+            },
+          ],
+        },
+      });
+    });
+
+    it('grants the get-person function only GetItem on the persons table', () => {
+      synth('dev').hasResourceProperties('AWS::IAM::Policy', {
+        Roles: roleOf('GetPerson'),
+        PolicyDocument: {
+          Statement: [
+            {
+              Action: 'dynamodb:GetItem',
+              Effect: 'Allow',
+              Resource: tableArn('Persons'),
+            },
+          ],
+        },
+      });
     });
   });
 

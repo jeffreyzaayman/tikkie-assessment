@@ -24,34 +24,28 @@ export interface PersonApiProps {
 export class PersonApi extends Construct {
   public readonly api: RestApi;
   public readonly createPersonFunction: NodejsFunction;
+  public readonly getPersonFunction: NodejsFunction;
+
+  private readonly isProd: boolean;
 
   constructor(scope: Construct, id: string, props: PersonApiProps) {
     super(scope, id);
     const { stage, storage } = props;
-    const isProd = stage === 'prod';
+    this.isProd = stage === 'prod';
 
-    this.createPersonFunction = new NodejsFunction(this, 'CreatePersonFunction', {
-      entry: join(HANDLERS_DIR, 'create-person.ts'),
-      runtime: Runtime.NODEJS_24_X,
-      architecture: Architecture.ARM_64,
-      memorySize: 256,
-      timeout: Duration.seconds(10),
-      loggingFormat: LoggingFormat.JSON,
-      logGroup: new LogGroup(this, 'CreatePersonLogs', {
-        retention: RetentionDays.ONE_MONTH,
-        removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
-      }),
-      environment: {
-        PERSONS_TABLE_NAME: storage.persons.tableName,
-        PHONE_NUMBERS_TABLE_NAME: storage.phoneNumbers.tableName,
-        NODE_OPTIONS: '--enable-source-maps',
-      },
-      bundling: { minify: true, sourceMap: true },
+    this.createPersonFunction = this.handlerFunction('CreatePerson', 'create-person.ts', {
+      PERSONS_TABLE_NAME: storage.persons.tableName,
+      PHONE_NUMBERS_TABLE_NAME: storage.phoneNumbers.tableName,
     });
-
     // A transaction of two Puts only needs PutItem; grantWriteData would also allow Update/Delete.
     storage.persons.grant(this.createPersonFunction, 'dynamodb:PutItem');
     storage.phoneNumbers.grant(this.createPersonFunction, 'dynamodb:PutItem');
+
+    this.getPersonFunction = this.handlerFunction('GetPerson', 'get-person.ts', {
+      PERSONS_TABLE_NAME: storage.persons.tableName,
+    });
+    // A single-item lookup; grantReadData would also allow Query/Scan over every person.
+    storage.persons.grant(this.getPersonFunction, 'dynamodb:GetItem');
 
     this.api = new RestApi(this, 'Api', {
       restApiName: `person-service-${stage}`,
@@ -67,5 +61,30 @@ export class PersonApi extends Construct {
 
     const persons = this.api.root.addResource('person');
     persons.addMethod('POST', new LambdaIntegration(this.createPersonFunction));
+
+    const person = persons.addResource('{id}');
+    person.addMethod('GET', new LambdaIntegration(this.getPersonFunction));
+  }
+
+  /** A Lambda handler with the service's shared runtime, logging and bundling settings. */
+  private handlerFunction(
+    name: string,
+    entryFile: string,
+    environment: Record<string, string>,
+  ): NodejsFunction {
+    return new NodejsFunction(this, `${name}Function`, {
+      entry: join(HANDLERS_DIR, entryFile),
+      runtime: Runtime.NODEJS_24_X,
+      architecture: Architecture.ARM_64,
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      loggingFormat: LoggingFormat.JSON,
+      logGroup: new LogGroup(this, `${name}Logs`, {
+        retention: RetentionDays.ONE_MONTH,
+        removalPolicy: this.isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      }),
+      environment: { ...environment, NODE_OPTIONS: '--enable-source-maps' },
+      bundling: { minify: true, sourceMap: true },
+    });
   }
 }

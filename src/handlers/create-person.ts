@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
+import { json, requireEnv } from '../http';
 import { parsePersonInput, type Person } from '../person';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -88,24 +89,4 @@ function isDuplicatePhoneNumber(error: unknown): boolean {
     error instanceof TransactionCanceledException &&
     error.CancellationReasons?.[PHONE_ITEM_INDEX]?.Code === 'ConditionalCheckFailed'
   );
-}
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing environment variable ${name}`);
-  }
-  return value;
-}
-
-function json(
-  statusCode: number,
-  body: unknown,
-  headers: Record<string, string> = {},
-): APIGatewayProxyResult {
-  return {
-    statusCode,
-    headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify(body),
-  };
 }
