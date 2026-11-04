@@ -1,17 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
 import { PersonServiceStack } from '../lib/person-service-stack';
 import { STAGES, type Stage } from '../lib/stage';
+import { testApp, withoutAssetHashes } from './support/cdk';
 
 const GLOBAL_TABLE = 'AWS::DynamoDB::GlobalTable';
-
-// Use the same feature flags as the CDK CLI, so tests see the template that gets deployed.
-const cdkJson = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'cdk.json'), 'utf8')) as {
-  context: Record<string, unknown>;
-};
 
 // Synthesise (and bundle the Lambdas) once per stage, shared by all tests.
 const templates = new Map<Stage, Template>();
@@ -19,7 +12,7 @@ const templates = new Map<Stage, Template>();
 function synth(stage: Stage): Template {
   let template = templates.get(stage);
   if (!template) {
-    const app = new App({ context: cdkJson.context });
+    const app = testApp();
     const stack = new PersonServiceStack(app, `PersonService-${stage}`, {
       stage,
       env: { region: 'eu-west-1' },
@@ -28,13 +21,6 @@ function synth(stage: Stage): Template {
     templates.set(stage, template);
   }
   return template;
-}
-
-/** Replaces Lambda asset hashes so handler code changes don't churn the snapshot. */
-function withoutAssetHashes(template: Template): unknown {
-  return JSON.parse(
-    JSON.stringify(template.toJSON()).replace(/[0-9a-f]{64}(\.zip)?/g, '[ASSET_HASH]$1'),
-  );
 }
 
 function replicaWith(props: Record<string, unknown>) {

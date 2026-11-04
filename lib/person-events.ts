@@ -8,6 +8,7 @@ import { Topic } from 'aws-cdk-lib/aws-sns';
 import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { personCreatedTopicArnParameterName } from './contracts';
 import { handlerFunction } from './handler-function';
 import type { Stage } from './stage';
 
@@ -105,7 +106,7 @@ export class PersonEvents extends Construct {
     this.pipe.node.addDependency(role);
 
     this.topicArnParameter = new StringParameter(this, 'TopicArnParameter', {
-      parameterName: `/person-service/${stage}/person-created-topic-arn`,
+      parameterName: personCreatedTopicArnParameterName(stage),
       stringValue: this.topic.topicArn,
       description: 'ARN of the person-created SNS topic, for consumers to subscribe to',
     });
