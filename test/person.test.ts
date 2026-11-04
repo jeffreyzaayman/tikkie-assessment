@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { parsePersonInput } from '../src/person';
+import { isPersonId, parsePersonInput } from '../src/person';
+
+describe('isPersonId', () => {
+  it.each(['1249302d-9c20-4a1f-8cf5-afdd0173f2a9', '1249302D-9C20-4A1F-8CF5-AFDD0173F2A9'])(
+    'accepts the v4 UUID %s',
+    (id) => {
+      expect(isPersonId(id)).toBe(true);
+    },
+  );
+
+  it.each([
+    ['a non-UUID string', 'abc'],
+    ['a v1 UUID', '1249302d-9c20-1a1f-8cf5-afdd0173f2a9'],
+    ['a UUID with extra characters', '1249302d-9c20-4a1f-8cf5-afdd0173f2a9x'],
+    ['a number', 42],
+    ['undefined', undefined],
+  ])('rejects %s', (_label, value) => {
+    expect(isPersonId(value)).toBe(false);
+  });
+});
 
 const valid = {
   firstName: 'Ada',

@@ -2,19 +2,17 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import { json, requireEnv } from '../http';
-import type { Person } from '../person';
+import { isPersonId, type Person } from '../person';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-
-// Ids are created with crypto.randomUUID() (v4); reject anything else before touching DynamoDB.
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function handler(
   event: APIGatewayProxyEvent,
   context: Context,
 ): Promise<APIGatewayProxyResult> {
   const id = event.pathParameters?.id;
-  if (!id || !UUID_PATTERN.test(id)) {
+  // Reject anything that can't be a person id before touching DynamoDB.
+  if (!isPersonId(id)) {
     return json(400, { message: 'Person id must be a UUID' });
   }
 

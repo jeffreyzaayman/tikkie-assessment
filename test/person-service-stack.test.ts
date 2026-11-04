@@ -48,9 +48,9 @@ describe('PersonServiceStack', () => {
 
   it('requires IAM auth on every API method', () => {
     const template = synth('dev');
-    template.resourceCountIs('AWS::ApiGateway::Method', 2);
+    template.resourceCountIs('AWS::ApiGateway::Method', 3);
     template.hasResourceProperties('AWS::ApiGateway::Method', { HttpMethod: 'POST' });
-    template.hasResourceProperties('AWS::ApiGateway::Method', { HttpMethod: 'GET' });
+    template.resourcePropertiesCountIs('AWS::ApiGateway::Method', { HttpMethod: 'GET' }, 2);
     template.allResourcesProperties('AWS::ApiGateway::Method', { AuthorizationType: 'AWS_IAM' });
   });
 
@@ -63,7 +63,7 @@ describe('PersonServiceStack', () => {
     ];
 
     it('has one policy per function and nothing else', () => {
-      synth('dev').resourceCountIs('AWS::IAM::Policy', 2);
+      synth('dev').resourceCountIs('AWS::IAM::Policy', 3);
     });
 
     it('grants the create-person function only PutItem on the two tables', () => {
@@ -88,6 +88,21 @@ describe('PersonServiceStack', () => {
           Statement: [
             {
               Action: 'dynamodb:GetItem',
+              Effect: 'Allow',
+              Resource: tableArn('Persons'),
+            },
+          ],
+        },
+      });
+    });
+
+    it('grants the list-persons function only Scan on the persons table', () => {
+      synth('dev').hasResourceProperties('AWS::IAM::Policy', {
+        Roles: roleOf('ListPersons'),
+        PolicyDocument: {
+          Statement: [
+            {
+              Action: 'dynamodb:Scan',
               Effect: 'Allow',
               Resource: tableArn('Persons'),
             },

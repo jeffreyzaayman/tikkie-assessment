@@ -226,10 +226,11 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
       "Type": "AWS::Logs::LogGroup",
       "UpdateReplacePolicy": "Delete",
     },
-    "ApiDeploymentFE1E72823a655d33e87c2a1903abc9cab7936897": {
+    "ApiDeploymentFE1E728292a5eb5835be811be39d20105aa26366": {
       "DependsOn": [
         "ApipersonidGET64D3F932",
         "ApipersonidEC0495F2",
+        "ApipersonGET715C57A1",
         "ApipersonPOSTC8AFBDB5",
         "Apiperson51647DE3",
       ],
@@ -247,7 +248,7 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
     "ApiDeploymentStagedev0C9DF900": {
       "Properties": {
         "DeploymentId": {
-          "Ref": "ApiDeploymentFE1E72823a655d33e87c2a1903abc9cab7936897",
+          "Ref": "ApiDeploymentFE1E728292a5eb5835be811be39d20105aa26366",
         },
         "MethodSettings": [
           {
@@ -412,6 +413,143 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
       "Type": "AWS::Logs::LogGroup",
       "UpdateReplacePolicy": "Delete",
     },
+    "ApiListPersonsFunctionE1783E4C": {
+      "DependsOn": [
+        "ApiListPersonsFunctionServiceRoleDefaultPolicyFCD383CF",
+        "ApiListPersonsFunctionServiceRole35FB10EF",
+      ],
+      "Properties": {
+        "Architectures": [
+          "arm64",
+        ],
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-eu-west-1",
+          },
+          "S3Key": "[ASSET_HASH].zip",
+        },
+        "Environment": {
+          "Variables": {
+            "NODE_OPTIONS": "--enable-source-maps",
+            "PERSONS_TABLE_NAME": {
+              "Ref": "StoragePersons0FDB3F49",
+            },
+          },
+        },
+        "Handler": "index.handler",
+        "LoggingConfig": {
+          "LogFormat": "JSON",
+          "LogGroup": {
+            "Ref": "ApiListPersonsLogsD2E851C7",
+          },
+        },
+        "MemorySize": 256,
+        "Role": {
+          "Fn::GetAtt": [
+            "ApiListPersonsFunctionServiceRole35FB10EF",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Timeout": 10,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "ApiListPersonsFunctionServiceRole35FB10EF": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ApiListPersonsFunctionServiceRoleDefaultPolicyFCD383CF": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "dynamodb:Scan",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "StoragePersons0FDB3F49",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "ApiListPersonsFunctionServiceRoleDefaultPolicyFCD383CF",
+        "Roles": [
+          {
+            "Ref": "ApiListPersonsFunctionServiceRole35FB10EF",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "ApiListPersonsLogsD2E851C7": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "RetentionInDays": 30,
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
     "Apiperson51647DE3": {
       "Properties": {
         "ParentId": {
@@ -426,6 +564,100 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
         },
       },
       "Type": "AWS::ApiGateway::Resource",
+    },
+    "ApipersonGET715C57A1": {
+      "Properties": {
+        "AuthorizationType": "AWS_IAM",
+        "HttpMethod": "GET",
+        "Integration": {
+          "IntegrationHttpMethod": "POST",
+          "Type": "AWS_PROXY",
+          "Uri": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/",
+                {
+                  "Fn::GetAtt": [
+                    "ApiListPersonsFunctionE1783E4C",
+                    "Arn",
+                  ],
+                },
+                "/invocations",
+              ],
+            ],
+          },
+        },
+        "ResourceId": {
+          "Ref": "Apiperson51647DE3",
+        },
+        "RestApiId": {
+          "Ref": "ApiCD79AAA0",
+        },
+      },
+      "Type": "AWS::ApiGateway::Method",
+    },
+    "ApipersonGETApiPermissionPersonServicedevApiC08AC2C5GETpersonF835D4F5": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "ApiListPersonsFunctionE1783E4C",
+            "Arn",
+          ],
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:aws:execute-api:eu-west-1:",
+              {
+                "Ref": "AWS::AccountId",
+              },
+              ":",
+              {
+                "Ref": "ApiCD79AAA0",
+              },
+              "/",
+              {
+                "Ref": "ApiDeploymentStagedev0C9DF900",
+              },
+              "/GET/person",
+            ],
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "ApipersonGETApiPermissionTestPersonServicedevApiC08AC2C5GETpersonBD2D7D47": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "ApiListPersonsFunctionE1783E4C",
+            "Arn",
+          ],
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:aws:execute-api:eu-west-1:",
+              {
+                "Ref": "AWS::AccountId",
+              },
+              ":",
+              {
+                "Ref": "ApiCD79AAA0",
+              },
+              "/test-invoke-stage/GET/person",
+            ],
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
     },
     "ApipersonPOSTApiPermissionPersonServicedevApiC08AC2C5POSTperson17D853CF": {
       "Properties": {

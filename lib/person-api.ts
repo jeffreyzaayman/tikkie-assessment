@@ -25,6 +25,7 @@ export class PersonApi extends Construct {
   public readonly api: RestApi;
   public readonly createPersonFunction: NodejsFunction;
   public readonly getPersonFunction: NodejsFunction;
+  public readonly listPersonsFunction: NodejsFunction;
 
   private readonly isProd: boolean;
 
@@ -47,6 +48,12 @@ export class PersonApi extends Construct {
     // A single-item lookup; grantReadData would also allow Query/Scan over every person.
     storage.persons.grant(this.getPersonFunction, 'dynamodb:GetItem');
 
+    this.listPersonsFunction = this.handlerFunction('ListPersons', 'list-persons.ts', {
+      PERSONS_TABLE_NAME: storage.persons.tableName,
+    });
+    // Paginated Scan of persons only; the phone-number table is never listed.
+    storage.persons.grant(this.listPersonsFunction, 'dynamodb:Scan');
+
     this.api = new RestApi(this, 'Api', {
       restApiName: `person-service-${stage}`,
       description: `Person service API (${stage})`,
@@ -61,6 +68,7 @@ export class PersonApi extends Construct {
 
     const persons = this.api.root.addResource('person');
     persons.addMethod('POST', new LambdaIntegration(this.createPersonFunction));
+    persons.addMethod('GET', new LambdaIntegration(this.listPersonsFunction));
 
     const person = persons.addResource('{id}');
     person.addMethod('GET', new LambdaIntegration(this.getPersonFunction));
