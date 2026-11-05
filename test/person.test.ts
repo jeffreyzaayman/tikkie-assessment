@@ -60,4 +60,20 @@ describe('parsePersonInput', () => {
     const result = parsePersonInput({ ...valid, address: 'x'.repeat(201) });
     expect(result).toEqual({ ok: false, errors: ['address must be at most 200 characters'] });
   });
+
+  it.each(['+31612345678', '+31 6 12345678', '0612345678', '06 12345678', '0031612345678'])(
+    'normalises the phone number %j to E.164',
+    (phoneNumber) => {
+      const result = parsePersonInput({ ...valid, phoneNumber });
+      expect(result).toEqual({ ok: true, value: { ...valid, phoneNumber: '+31612345678' } });
+    },
+  );
+
+  it.each(['12', '+31 6 1234', 'not a number', '+999 12345678'])(
+    'rejects the invalid phone number %j without echoing it',
+    (phoneNumber) => {
+      const result = parsePersonInput({ ...valid, phoneNumber });
+      expect(result).toEqual({ ok: false, errors: ['phoneNumber must be a valid phone number'] });
+    },
+  );
 });

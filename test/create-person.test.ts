@@ -107,6 +107,61 @@ describe('create-person handler', () => {
     expect(response.statusCode).toBe(409);
   });
 
+  it('returns 400 for an invalid phone number without calling DynamoDB', async () => {
+    const response = await handler(
+      event(JSON.stringify({ ...person, phoneNumber: '12' })),
+      context,
+    );
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toEqual({
+      message: 'Validation failed',
+      errors: ['phoneNumber must be a valid phone number'],
+    });
+    expect(ddb.calls()).toHaveLength(0);
+  });
+
+  it('stores the phone number in E.164 format in both tables', async () => {
+    ddb.on(TransactWriteCommand).resolves({});
+
+    const response = await handler(
+      event(JSON.stringify({ ...person, phoneNumber: '06 12345678' })),
+      context,
+    );
+
+    expect(response.statusCode).toBe(201);
+    expect(JSON.parse(response.body)).toMatchObject({ phoneNumber: '+31612345678' });
+    const [personPut, phonePut] =
+      ddb.commandCalls(TransactWriteCommand)[0]!.args[0].input.TransactItems!;
+    expect(personPut!.Put!.Item).toMatchObject({ phoneNumber: '+31612345678' });
+    expect(phonePut!.Put!.Item).toMatchObject({ phoneNumber: '+31612345678' });
+  });
+
+  it('returns 409 for the same number in a different format', async () => {
+    // Behaves like the conditional Put on the phoneNumbers table.
+    const stored = new Set<unknown>();
+    ddb.on(TransactWriteCommand).callsFake((input: TransactWriteCommand['input']) => {
+      const phoneNumber: unknown = input.TransactItems![1]!.Put!.Item!.phoneNumber;
+      if (stored.has(phoneNumber)) {
+        throw cancelled(['None', 'ConditionalCheckFailed']);
+      }
+      stored.add(phoneNumber);
+      return {};
+    });
+
+    const first = await handler(
+      event(JSON.stringify({ ...person, phoneNumber: '+31 6 12345678' })),
+      context,
+    );
+    const second = await handler(
+      event(JSON.stringify({ ...person, phoneNumber: '0612345678' })),
+      context,
+    );
+
+    expect(first.statusCode).toBe(201);
+    expect(second.statusCode).toBe(409);
+  });
+
   it('returns 500 for other failures and logs no personal data', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     ddb.on(TransactWriteCommand).rejects(cancelled(['ConditionalCheckFailed', 'None']));
