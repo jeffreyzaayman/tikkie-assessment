@@ -5,6 +5,7 @@
     "exclude": ["**/*.test.ts", "node_modules", "cdk.out"]
   },
   "context": {
+    "stageAccounts": { "dev": "128955060979", "prod": "577995596848" },
     "@aws-cdk/aws-signer:signingProfileNamePassedToCfn": true,
     "@aws-cdk/core:newStyleStackSynthesis": true,
     "@aws-cdk/core:stackRelativeExports": true,

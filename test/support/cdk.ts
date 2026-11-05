@@ -7,9 +7,12 @@ const cdkJson = JSON.parse(
   readFileSync(join(import.meta.dirname, '..', '..', 'cdk.json'), 'utf8'),
 ) as { context: Record<string, unknown> };
 
-// An App with the same feature flags as the CDK CLI, so tests see the template that deploys.
-export function testApp(): App {
-  return new App({ context: cdkJson.context });
+/*
+ * An App with the same cdk.json context as the CDK CLI (feature flags, stageAccounts), so tests
+ * see the template that deploys. Extra context is merged on top.
+ */
+export function testApp(extraContext: Record<string, unknown> = {}): App {
+  return new App({ context: { ...cdkJson.context, ...extraContext } });
 }
 
 // Replaces Lambda asset hashes so handler code changes don't churn the snapshot.
