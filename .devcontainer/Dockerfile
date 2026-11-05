@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends unzip jq \
     && rm -rf /tmp/aws /tmp/awscliv2.zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# AWS CDK CLI. The project also pins aws-cdk-lib in package.json; this is just the CLI.
-RUN npm install -g aws-cdk@2
+# AWS CDK CLI for running `cdk` directly. Must match the aws-cdk devDependency in package.json
+# (npx cdk uses that one); bump both together.
+RUN npm install -g aws-cdk@2.1147.0
 
 # Claude Code CLI, so the AI assistant runs inside this container and only sees the mounted repo,
 # not the rest of the host machine.
