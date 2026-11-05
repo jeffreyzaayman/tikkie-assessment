@@ -1,10 +1,14 @@
-import { CfnOutput, Duration, Stack, Tags, type StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, Stack, Tags, type StackProps } from 'aws-cdk-lib';
+import { AttributeType, Billing, TableV2 } from 'aws-cdk-lib/aws-dynamodb';
+import type { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { SqsSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 import { personCreatedTopicArnParameterName } from './contracts';
+import { handlerFunction } from './handler-function';
 import type { Stage } from './stage';
 
 export interface WelcomeServiceStackProps extends StackProps {
@@ -26,6 +30,8 @@ export class WelcomeServiceStack extends Stack {
   public readonly queue: Queue;
   public readonly deadLetterQueue: Queue;
   public readonly subscriptionDeadLetterQueue: Queue;
+  public readonly processedEvents: TableV2;
+  public readonly welcomeFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: WelcomeServiceStackProps) {
     const tags = { Service: 'welcome-service', Stage: props.stage };
@@ -80,6 +86,30 @@ export class WelcomeServiceStack extends Stack {
         rawMessageDelivery: true,
         deadLetterQueue: this.subscriptionDeadLetterQueue,
       }),
+    );
+
+    /*
+     * eventIds already handled, for deduplicating at-least-once deliveries. Entries expire via
+     * TTL; losing them only risks a duplicate welcome, so the table isn't retained or backed up.
+     */
+    this.processedEvents = new TableV2(this, 'ProcessedEvents', {
+      partitionKey: { name: 'eventId', type: AttributeType.STRING },
+      billing: Billing.onDemand(),
+      timeToLiveAttribute: 'expiresAt',
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    this.welcomeFunction = handlerFunction(this, 'Welcome', {
+      stage: props.stage,
+      entryFile: 'welcome-person.ts',
+      environment: { PROCESSED_EVENTS_TABLE_NAME: this.processedEvents.tableName },
+    });
+    // Claim an eventId (conditional put) and release it if the welcome fails; nothing else.
+    this.processedEvents.grant(this.welcomeFunction, 'dynamodb:PutItem', 'dynamodb:DeleteItem');
+
+    // Report failed messages individually, so one bad message doesn't retry the whole batch.
+    this.welcomeFunction.addEventSource(
+      new SqsEventSource(this.queue, { batchSize: 10, reportBatchItemFailures: true }),
     );
 
     new CfnOutput(this, 'QueueUrl', { value: this.queue.queueUrl });

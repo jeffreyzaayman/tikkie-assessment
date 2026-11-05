@@ -73,6 +73,45 @@ exports[`WelcomeServiceStack > matches the synthesised template snapshot 1`] = `
       },
       "Type": "AWS::SQS::QueuePolicy",
     },
+    "ProcessedEvents7CA3C580": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "eventId",
+            "AttributeType": "S",
+          },
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": [
+          {
+            "AttributeName": "eventId",
+            "KeyType": "HASH",
+          },
+        ],
+        "Replicas": [
+          {
+            "Region": "eu-west-1",
+            "Tags": [
+              {
+                "Key": "Service",
+                "Value": "welcome-service",
+              },
+              {
+                "Key": "Stage",
+                "Value": "dev",
+              },
+            ],
+          },
+        ],
+        "TimeToLiveSpecification": {
+          "AttributeName": "expiresAt",
+          "Enabled": true,
+        },
+      },
+      "Type": "AWS::DynamoDB::GlobalTable",
+      "UpdateReplacePolicy": "Delete",
+    },
     "Queue4A7E3555": {
       "DeletionPolicy": "Delete",
       "Properties": {
@@ -266,6 +305,190 @@ exports[`WelcomeServiceStack > matches the synthesised template snapshot 1`] = `
         ],
       },
       "Type": "AWS::SQS::QueuePolicy",
+    },
+    "WelcomeFunctionBFCFA9C3": {
+      "DependsOn": [
+        "WelcomeFunctionServiceRoleDefaultPolicy511020F0",
+        "WelcomeFunctionServiceRole1403ABC1",
+      ],
+      "Properties": {
+        "Architectures": [
+          "arm64",
+        ],
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-eu-west-1",
+          },
+          "S3Key": "[ASSET_HASH].zip",
+        },
+        "Environment": {
+          "Variables": {
+            "NODE_OPTIONS": "--enable-source-maps",
+            "PROCESSED_EVENTS_TABLE_NAME": {
+              "Ref": "ProcessedEvents7CA3C580",
+            },
+          },
+        },
+        "Handler": "index.handler",
+        "LoggingConfig": {
+          "LogFormat": "JSON",
+          "LogGroup": {
+            "Ref": "WelcomeLogs130A7308",
+          },
+        },
+        "MemorySize": 256,
+        "Role": {
+          "Fn::GetAtt": [
+            "WelcomeFunctionServiceRole1403ABC1",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Timeout": 10,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "WelcomeFunctionServiceRole1403ABC1": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "WelcomeFunctionServiceRoleDefaultPolicy511020F0": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "dynamodb:DeleteItem",
+                "dynamodb:PutItem",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "ProcessedEvents7CA3C580",
+                  "Arn",
+                ],
+              },
+            },
+            {
+              "Action": [
+                "sqs:ChangeMessageVisibility",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+                "sqs:ReceiveMessage",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "Queue4A7E3555",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "WelcomeFunctionServiceRoleDefaultPolicy511020F0",
+        "Roles": [
+          {
+            "Ref": "WelcomeFunctionServiceRole1403ABC1",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "WelcomeFunctionSqsEventSourceWelcomeServicedevQueueAC59A5F3C34002F9": {
+      "Properties": {
+        "BatchSize": 10,
+        "EventSourceArn": {
+          "Fn::GetAtt": [
+            "Queue4A7E3555",
+            "Arn",
+          ],
+        },
+        "FunctionName": {
+          "Ref": "WelcomeFunctionBFCFA9C3",
+        },
+        "FunctionResponseTypes": [
+          "ReportBatchItemFailures",
+        ],
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::Lambda::EventSourceMapping",
+    },
+    "WelcomeLogs130A7308": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "RetentionInDays": 30,
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
     },
   },
   "Rules": {
