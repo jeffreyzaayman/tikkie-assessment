@@ -32,6 +32,6 @@ jobs:
 
       # No AWS credentials needed: accounts come from cdk.json, SSM values resolve at deploy time.
       - name: Synth dev
-        run: npx cdk synth --all -c stage=dev --quiet
+        run: npx cdk synth -c stage=dev --quiet
       - name: Synth prod
-        run: npx cdk synth --all -c stage=prod --quiet
+        run: npx cdk synth -c stage=prod --quiet
