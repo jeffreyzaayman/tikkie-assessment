@@ -10,6 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends unzip jq \
     && rm -rf /tmp/aws /tmp/awscliv2.zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# bubblewrap and socat back the sandbox that Claude Code and Copilot use to run commands on Linux:
+# bubblewrap isolates each command in its own namespaces, socat proxies its network traffic.
+# bubblewrap also needs the seccomp=unconfined runArg in devcontainer.json to create namespaces.
+RUN apt-get update && apt-get install -y --no-install-recommends bubblewrap socat \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # AWS CDK CLI for running `cdk` directly. Must match the aws-cdk devDependency in package.json
 # (npx cdk uses that one); bump both together.
 RUN npm install -g aws-cdk@2.1147.0
