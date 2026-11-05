@@ -259,6 +259,7 @@ test/       Unit tests and CDK template tests
 | SNS fan-out, consumers own their SQS queues   | New consumers subscribe without changes to the Person Service                                                                  | No replay or schema registry, unlike an EventBridge bus                              |
 | Topic ARN in SSM, not a CloudFormation export | Stacks deploy independently; an export would block changes to the topic                                                        | No deploy-time check that the consumer's subscription still exists                   |
 | arm64 Lambdas on Node.js 24                   | About 20% cheaper; the current LTS runtime                                                                                     | Native dependencies would need arm64 builds (none are used)                          |
+| ESM throughout, including the Lambda bundles  | One module format from source to runtime; allows top-level `await` and `import.meta` in handlers                               | A `require()` shim in each bundle for CommonJS dependencies                          |
 
 ## Known limitations and next steps
 

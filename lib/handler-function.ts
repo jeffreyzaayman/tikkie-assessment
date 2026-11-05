@@ -1,12 +1,20 @@
 import { join } from 'node:path';
 import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 import { Architecture, LoggingFormat, Runtime } from 'aws-cdk-lib/aws-lambda';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import type { Construct } from 'constructs';
 import type { Stage } from './stage';
 
 const HANDLERS_DIR = join(import.meta.dirname, '..', 'src', 'handlers');
+
+/*
+ * Gives CommonJS dependencies that call require() a working one inside the ESM bundle. The
+ * name is unusual so it can't clash with a top-level binding in the bundled code.
+ */
+const ESM_REQUIRE_SHIM =
+  "import { createRequire as __createRequire } from 'node:module'; " +
+  'const require = __createRequire(import.meta.url);';
 
 export interface HandlerFunctionProps {
   readonly stage: Stage;
@@ -37,6 +45,16 @@ export function handlerFunction(
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
     }),
     environment: { ...props.environment, NODE_OPTIONS: '--enable-source-maps' },
-    bundling: { minify: true, sourceMap: true },
+    /*
+     * ESM like the source (index.mjs, so Lambda loads it as a module). Prefers dependencies' ESM
+     * builds; @aws-sdk/* stays external and comes from the runtime.
+     */
+    bundling: {
+      minify: true,
+      sourceMap: true,
+      format: OutputFormat.ESM,
+      mainFields: ['module', 'main'],
+      banner: ESM_REQUIRE_SHIM,
+    },
   });
 }
