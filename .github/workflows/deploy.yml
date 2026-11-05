@@ -9,6 +9,11 @@ on:
         type: choice
         options: [dev, prod]
         default: dev
+      confirm:
+        description: To deploy prod, type prod here (not needed for dev)
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -19,7 +24,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Cheap checks first, so a wrong pick fails in seconds and never reaches the credentials.
+  guard:
+    name: Check deploy request
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check branch and confirmation
+        env:
+          STAGE: ${{ inputs.stage }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "${STAGE}" = prod ] && [ "${GITHUB_REF}" != refs/heads/main ]; then
+            echo "::error::prod can only be deployed from main, not ${GITHUB_REF}"
+            exit 1
+          fi
+          # Stands in for required reviewers, which private repos on GitHub Free don't have.
+          if [ "${STAGE}" = prod ] && [ "${CONFIRM}" != prod ]; then
+            echo "::error::To deploy prod, type prod in the confirm field."
+            exit 1
+          fi
+          echo "Deploying ${STAGE} from ${GITHUB_REF}"
+
   ci:
+    needs: guard
     uses: ./.github/workflows/ci.yml
 
   deploy:
@@ -30,12 +58,6 @@ jobs:
     # Holds this stage's secrets and variables; add required reviewers to `prod` in the settings.
     environment: ${{ inputs.stage }}
     steps:
-      - name: Only deploy prod from main
-        if: inputs.stage == 'prod' && github.ref != 'refs/heads/main'
-        run: |
-          echo "::error::prod can only be deployed from main, not ${GITHUB_REF}"
-          exit 1
-
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v5

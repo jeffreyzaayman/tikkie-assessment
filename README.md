@@ -183,7 +183,9 @@ The stack outputs `ApiUrl` (ends in `/<stage>/`) and `PersonCreatedTopicArn`.
   and `cdk synth` of both stages. It needs no AWS credentials.
 - **Deploy** ([`deploy.yml`](.github/workflows/deploy.yml)) runs only by hand (Actions → Deploy →
   Run workflow, then pick a stage). It runs CI first, checks that the credentials still work, then
-  runs `cdk deploy --all` with the stage and alarm email. `prod` can only be deployed from `main`.
+  runs `cdk deploy --all` with the stage and alarm email. `prod` can only be deployed from `main`,
+  and only when you type `prod` in the confirm field. That stands in for required reviewers,
+  which GitHub doesn't offer for private repositories on the Free plan.
 
 The AWS credentials are short-lived, which is why the deploy isn't triggered by a push. Before
 each run, paste fresh keys into the GitHub environment of the stage (Settings → Environments):
@@ -195,8 +197,9 @@ each run, paste fresh keys into the GitHub environment of the stage (Settings �
 | `AWS_SESSION_TOKEN`     | Secret              | Session token                               |
 | `ALARM_EMAIL`           | Variable (optional) | Address subscribed to the alarm topics      |
 
-Create one environment per stage, named `dev` and `prod`, and add yourself as a required reviewer
-on `prod`. The keys must stay valid for the whole deploy (usually a few minutes): if they expire
+Create one environment per stage, named `dev` and `prod`. If the repository is public (or on a
+paid plan), also add yourself as a required reviewer on `prod` and limit its deployment branches
+to `main`. The keys must stay valid for the whole deploy (usually a few minutes): if they expire
 while CDK waits for CloudFormation, the run fails, although CloudFormation finishes the update.
 
 ### Differences between stages
