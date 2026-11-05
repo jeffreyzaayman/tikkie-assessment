@@ -70,6 +70,10 @@ Every method requires IAM authentication (AWS Signature V4). The caller needs `e
 on the API. A plain `curl` gets `403`; use [awscurl](https://github.com/okigan/awscurl), Postman's
 "AWS Signature" auth or an AWS SDK.
 
+The full contract is in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.0). To browse it, open
+it in [Swagger Editor](https://editor.swagger.io) or run
+`npx @redocly/cli preview-docs api/openapi.yaml`.
+
 ### `POST /person`
 
 ```bash
