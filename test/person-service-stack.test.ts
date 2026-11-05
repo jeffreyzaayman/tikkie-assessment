@@ -213,6 +213,60 @@ describe('PersonServiceStack', () => {
     });
   });
 
+  describe('alarms', () => {
+    const ALARM = 'AWS::CloudWatch::Alarm';
+
+    it('has one alarm per failure mode, all notifying the alarm topic', () => {
+      const template = synth('dev');
+      const names = Object.values(template.findResources(ALARM)).map(
+        (alarm) => (alarm as { Properties: { AlarmName: string } }).Properties.AlarmName,
+      );
+      expect(names.sort()).toEqual(
+        [
+          'person-service-dev-Api5xx',
+          'person-service-dev-CreatePersonErrors',
+          'person-service-dev-EventEnrichmentErrors',
+          'person-service-dev-GetPersonErrors',
+          'person-service-dev-ListPersonsErrors',
+          'person-service-dev-PipeDeadLetterQueueNotEmpty',
+        ].sort(),
+      );
+      template.allResourcesProperties(ALARM, {
+        AlarmActions: [{ Ref: Match.stringLikeRegexp('^AlarmsTopic') }],
+        TreatMissingData: 'notBreaching',
+      });
+    });
+
+    it('watches the pipe dead-letter queue', () => {
+      synth('dev').hasResourceProperties(ALARM, {
+        AlarmName: 'person-service-dev-PipeDeadLetterQueueNotEmpty',
+        MetricName: 'ApproximateNumberOfMessagesVisible',
+        Dimensions: [
+          {
+            Name: 'QueueName',
+            Value: {
+              'Fn::GetAtt': [Match.stringLikeRegexp('^EventsDeadLetterQueue'), 'QueueName'],
+            },
+          },
+        ],
+      });
+    });
+
+    it('counts every 5XX the API returns', () => {
+      synth('dev').hasResourceProperties(ALARM, {
+        AlarmName: 'person-service-dev-Api5xx',
+        Namespace: 'AWS/ApiGateway',
+        MetricName: '5XXError',
+        Statistic: 'Sum',
+        Threshold: 1,
+      });
+    });
+
+    it('subscribes no email unless one is configured', () => {
+      synth('dev').resourcePropertiesCountIs('AWS::SNS::Subscription', { Protocol: 'email' }, 0);
+    });
+  });
+
   describe.each(STAGES)('%s stage', (stage) => {
     const template = synth(stage);
 

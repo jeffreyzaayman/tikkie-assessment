@@ -9,10 +9,13 @@ import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 import { personCreatedTopicArnParameterName } from './contracts';
 import { handlerFunction } from './handler-function';
+import { ServiceAlarms } from './service-alarms';
 import type { Stage } from './stage';
 
 export interface WelcomeServiceStackProps extends StackProps {
   readonly stage: Stage;
+  // Optional address that receives alarm notifications.
+  readonly alarmEmail?: string;
 }
 
 // Retries before a message moves to the dead-letter queue.
@@ -32,6 +35,7 @@ export class WelcomeServiceStack extends Stack {
   public readonly subscriptionDeadLetterQueue: Queue;
   public readonly processedEvents: TableV2;
   public readonly welcomeFunction: NodejsFunction;
+  public readonly alarms: ServiceAlarms;
 
   constructor(scope: Construct, id: string, props: WelcomeServiceStackProps) {
     const tags = { Service: 'welcome-service', Stage: props.stage };
@@ -117,6 +121,23 @@ export class WelcomeServiceStack extends Stack {
     this.welcomeFunction.addEventSource(
       new SqsEventSource(this.queue, { batchSize: 10, reportBatchItemFailures: true }),
     );
+
+    this.alarms = new ServiceAlarms(this, 'Alarms', {
+      service: 'welcome-service',
+      stage: props.stage,
+      alarmEmail: props.alarmEmail,
+    });
+    this.alarms.deadLetterQueueNotEmpty(
+      'DeadLetterQueue',
+      this.deadLetterQueue,
+      'A person-created message failed processing 5 times: inspect it, fix, then redrive',
+    );
+    this.alarms.deadLetterQueueNotEmpty(
+      'SubscriptionDeadLetterQueue',
+      this.subscriptionDeadLetterQueue,
+      'SNS could not deliver a person-created event to the queue: check the queue policy',
+    );
+    this.alarms.queueBacklogTooOld('Queue', this.queue, Duration.minutes(5));
 
     new CfnOutput(this, 'QueueUrl', { value: this.queue.queueUrl });
   }

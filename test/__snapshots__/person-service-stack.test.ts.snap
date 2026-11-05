@@ -61,6 +61,342 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
     },
   },
   "Resources": {
+    "AlarmsApi5xxFE885FB1": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The API returned a 5XX response",
+        "AlarmName": "person-service-dev-Api5xx",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "ApiName",
+            "Value": "person-service-dev",
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "5XXError",
+        "Namespace": "AWS/ApiGateway",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsCreatePersonErrors0506269E": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The CreatePerson Lambda failed (crash or timeout)",
+        "AlarmName": "person-service-dev-CreatePersonErrors",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "ApiCreatePersonFunctionF3013DE6",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Errors",
+        "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsEventEnrichmentErrorsC06BB237": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The EventEnrichment Lambda failed (crash or timeout)",
+        "AlarmName": "person-service-dev-EventEnrichmentErrors",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "EventsEnrichmentFunctionF50DC9E5",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Errors",
+        "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsGetPersonErrors0A607E9F": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The GetPerson Lambda failed (crash or timeout)",
+        "AlarmName": "person-service-dev-GetPersonErrors",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "ApiGetPersonFunctionFA26DBF2",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Errors",
+        "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsListPersonsErrorsDB2DAC2E": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The ListPersons Lambda failed (crash or timeout)",
+        "AlarmName": "person-service-dev-ListPersonsErrors",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "ApiListPersonsFunctionE1783E4C",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Errors",
+        "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsPipeDeadLetterQueueNotEmpty25E24DA0": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "A person-created event could not be published: reprocess from the stream within 24h",
+        "AlarmName": "person-service-dev-PipeDeadLetterQueueNotEmpty",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": {
+              "Fn::GetAtt": [
+                "EventsDeadLetterQueueC3DB07E1",
+                "QueueName",
+              ],
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "ApproximateNumberOfMessagesVisible",
+        "Namespace": "AWS/SQS",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Maximum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsTopic3A2DFEBA": {
+      "Properties": {
+        "DisplayName": "person-service-dev alarms",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::SNS::Topic",
+    },
+    "AlarmsTopicPolicyED3A875E": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false",
+                },
+              },
+              "Effect": "Deny",
+              "Principal": "*",
+              "Resource": {
+                "Ref": "AlarmsTopic3A2DFEBA",
+              },
+              "Sid": "AllowPublishThroughSSLOnly",
+            },
+            {
+              "Action": "sns:Publish",
+              "Condition": {
+                "ArnLike": {
+                  "aws:SourceArn": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:aws:cloudwatch:eu-west-1:",
+                        {
+                          "Ref": "AWS::AccountId",
+                        },
+                        ":alarm:person-service-dev-*",
+                      ],
+                    ],
+                  },
+                },
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId",
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudwatch.amazonaws.com",
+              },
+              "Resource": {
+                "Ref": "AlarmsTopic3A2DFEBA",
+              },
+              "Sid": "AllowCloudWatchAlarms",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "Topics": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+      },
+      "Type": "AWS::SNS::TopicPolicy",
+    },
     "ApiCD79AAA0": {
       "Properties": {
         "Description": "Person service API (dev)",

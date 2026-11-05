@@ -21,6 +21,221 @@ exports[`WelcomeServiceStack > matches the synthesised template snapshot 1`] = `
     },
   },
   "Resources": {
+    "AlarmsDeadLetterQueueNotEmptyF84C0B0A": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "A person-created message failed processing 5 times: inspect it, fix, then redrive",
+        "AlarmName": "welcome-service-dev-DeadLetterQueueNotEmpty",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": {
+              "Fn::GetAtt": [
+                "DeadLetterQueue9F481546",
+                "QueueName",
+              ],
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "ApproximateNumberOfMessagesVisible",
+        "Namespace": "AWS/SQS",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Maximum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsQueueOldestMessage41BB9BA6": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "Oldest message on Queue waited more than 5 minutes: the consumer may be stuck or failing",
+        "AlarmName": "welcome-service-dev-QueueOldestMessage",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": {
+              "Fn::GetAtt": [
+                "Queue4A7E3555",
+                "QueueName",
+              ],
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "ApproximateAgeOfOldestMessage",
+        "Namespace": "AWS/SQS",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Maximum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 300,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsSubscriptionDeadLetterQueueNotEmpty523CF2B5": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "SNS could not deliver a person-created event to the queue: check the queue policy",
+        "AlarmName": "welcome-service-dev-SubscriptionDeadLetterQueueNotEmpty",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": {
+              "Fn::GetAtt": [
+                "SubscriptionDeadLetterQueueD6486E03",
+                "QueueName",
+              ],
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "ApproximateNumberOfMessagesVisible",
+        "Namespace": "AWS/SQS",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Maximum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsTopic3A2DFEBA": {
+      "Properties": {
+        "DisplayName": "welcome-service-dev alarms",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+      },
+      "Type": "AWS::SNS::Topic",
+    },
+    "AlarmsTopicPolicyED3A875E": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false",
+                },
+              },
+              "Effect": "Deny",
+              "Principal": "*",
+              "Resource": {
+                "Ref": "AlarmsTopic3A2DFEBA",
+              },
+              "Sid": "AllowPublishThroughSSLOnly",
+            },
+            {
+              "Action": "sns:Publish",
+              "Condition": {
+                "ArnLike": {
+                  "aws:SourceArn": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:aws:cloudwatch:eu-west-1:",
+                        {
+                          "Ref": "AWS::AccountId",
+                        },
+                        ":alarm:welcome-service-dev-*",
+                      ],
+                    ],
+                  },
+                },
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId",
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudwatch.amazonaws.com",
+              },
+              "Resource": {
+                "Ref": "AlarmsTopic3A2DFEBA",
+              },
+              "Sid": "AllowCloudWatchAlarms",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "Topics": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+      },
+      "Type": "AWS::SNS::TopicPolicy",
+    },
     "DeadLetterQueue9F481546": {
       "DeletionPolicy": "Delete",
       "Properties": {

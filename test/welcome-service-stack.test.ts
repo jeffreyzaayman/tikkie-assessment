@@ -166,6 +166,32 @@ describe('WelcomeServiceStack', () => {
     });
   });
 
+  it('alarms on both dead-letter queues and on a stuck consumer', () => {
+    const template = synth('dev');
+    const alarm = (name: string, metric: string, queue: string, threshold: number) =>
+      template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+        AlarmName: `welcome-service-dev-${name}`,
+        MetricName: metric,
+        Threshold: threshold,
+        Dimensions: [
+          {
+            Name: 'QueueName',
+            Value: { 'Fn::GetAtt': [Match.stringLikeRegexp(`^${queue}[0-9A-F]{8}$`), 'QueueName'] },
+          },
+        ],
+        AlarmActions: [{ Ref: Match.stringLikeRegexp('^AlarmsTopic') }],
+      });
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 3);
+    alarm('DeadLetterQueueNotEmpty', 'ApproximateNumberOfMessagesVisible', 'DeadLetterQueue', 1);
+    alarm(
+      'SubscriptionDeadLetterQueueNotEmpty',
+      'ApproximateNumberOfMessagesVisible',
+      'SubscriptionDeadLetterQueue',
+      1,
+    );
+    alarm('QueueOldestMessage', 'ApproximateAgeOfOldestMessage', 'Queue', 300);
+  });
+
   it('tags resources with the welcome-service name and stage', () => {
     synth('prod').allResourcesProperties(QUEUE, {
       Tags: Match.arrayWith([
