@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Lets the deploy workflow run the same checks before it deploys.
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, test and synth
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      # Includes the CDK template snapshots and the OpenAPI drift check.
+      - run: npm test
+
+      # No AWS credentials needed: accounts come from cdk.json, SSM values resolve at deploy time.
+      - name: Synth dev
+        run: npx cdk synth --all -c stage=dev --quiet
+      - name: Synth prod
+        run: npx cdk synth --all -c stage=prod --quiet

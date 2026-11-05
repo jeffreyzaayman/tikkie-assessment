@@ -176,6 +176,29 @@ npx cdk deploy --all -c stage=dev -c alarmEmail=you@example.com   # optional ala
 
 The stack outputs `ApiUrl` (ends in `/<stage>/`) and `PersonCreatedTopicArn`.
 
+### From GitHub Actions
+
+- **CI** ([`ci.yml`](.github/workflows/ci.yml)) runs on every pull request and push to `main`:
+  format check, lint, typecheck, tests (including the CDK snapshots and the OpenAPI drift check)
+  and `cdk synth` of both stages. It needs no AWS credentials.
+- **Deploy** ([`deploy.yml`](.github/workflows/deploy.yml)) runs only by hand (Actions → Deploy →
+  Run workflow, then pick a stage). It runs CI first, checks that the credentials still work, then
+  runs `cdk deploy --all` with the stage and alarm email. `prod` can only be deployed from `main`.
+
+The AWS credentials are short-lived, which is why the deploy isn't triggered by a push. Before
+each run, paste fresh keys into the GitHub environment of the stage (Settings → Environments):
+
+| Name                    | Kind                | Value                                       |
+| ----------------------- | ------------------- | ------------------------------------------- |
+| `AWS_ACCESS_KEY_ID`     | Secret              | Temporary access key of the stage's account |
+| `AWS_SECRET_ACCESS_KEY` | Secret              | Temporary secret key                        |
+| `AWS_SESSION_TOKEN`     | Secret              | Session token                               |
+| `ALARM_EMAIL`           | Variable (optional) | Address subscribed to the alarm topics      |
+
+Create one environment per stage, named `dev` and `prod`, and add yourself as a required reviewer
+on `prod`. The keys must stay valid for the whole deploy (usually a few minutes): if they expire
+while CDK waits for CloudFormation, the run fails, although CloudFormation finishes the update.
+
 ### Differences between stages
 
 |                                           | dev         | prod         |
@@ -239,8 +262,9 @@ test/       Unit tests and CDK template tests
 - **Personal data in the event.** The topic is not encrypted yet, and every subscriber receives
   the name, phone number and address. Next: a customer-managed KMS key for the topic, and an
   event that carries only the id plus what consumers really need.
-- **No CI/CD.** Deploys are manual `cdk deploy` runs. Next: GitHub Actions for lint and tests,
-  then deploys to dev and prod through an OIDC role.
+- **Short-lived keys pasted into GitHub.** CI runs on every push, but deploys need fresh keys in
+  the environment's secrets each time. Next: an OIDC role per account, so GitHub gets its own
+  short-lived credentials and deploys can run on every merge to `main` (prod after approval).
 - **Two validation layers.** API Gateway checks the body's shape and the Lambda checks it again
   by hand. Next: Zod in the handler, generated from or checked against the same schema. Query and
   path parameters are checked only in the Lambdas: API Gateway can only check that they exist.

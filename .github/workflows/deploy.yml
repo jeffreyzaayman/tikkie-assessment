@@ -1,0 +1,88 @@
+name: Deploy
+
+# Manual only: the AWS credentials are short-lived. Refresh the stage's secrets, then run this.
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Stage to deploy (uses the GitHub environment of the same name)
+        type: choice
+        options: [dev, prod]
+        default: dev
+
+permissions:
+  contents: read
+
+# One deploy per stage at a time; never cancel one halfway through a CloudFormation update.
+concurrency:
+  group: deploy-${{ inputs.stage }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy ${{ inputs.stage }}
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Holds this stage's secrets and variables; add required reviewers to `prod` in the settings.
+    environment: ${{ inputs.stage }}
+    steps:
+      - name: Only deploy prod from main
+        if: inputs.stage == 'prod' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::prod can only be deployed from main, not ${GITHUB_REF}"
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      # Before the credentials are in the environment, so install scripts never see them.
+      - run: npm ci
+
+      # Fails fast with a clear message instead of halfway through the deploy.
+      - name: Check AWS credentials
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AWS_REGION: eu-west-1
+          STAGE: ${{ inputs.stage }}
+        run: |
+          if ! account=$(aws sts get-caller-identity --query Account --output text 2>/dev/null); then
+            echo "::error::The AWS credentials of the '${STAGE}' environment are missing or expired. Update its AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN secrets, then run this workflow again."
+            exit 1
+          fi
+          echo "Deploying ${STAGE} to account ${account}"
+
+      # CDK itself refuses to deploy if the credentials belong to another stage's account.
+      - name: Deploy
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AWS_REGION: eu-west-1
+          STAGE: ${{ inputs.stage }}
+          # Optional; empty means no email subscription to the alarm topics.
+          ALARM_EMAIL: ${{ vars.ALARM_EMAIL }}
+        run: >-
+          npx cdk deploy --all
+          -c stage="${STAGE}"
+          -c alarmEmail="${ALARM_EMAIL}"
+          --require-approval never
+          --outputs-file cdk-outputs.json
+
+      - name: Summary
+        env:
+          STAGE: ${{ inputs.stage }}
+        run: |
+          {
+            echo "### Deployed ${STAGE}"
+            echo "API URL: $(jq -r --arg s "PersonService-${STAGE}" '.[$s].ApiUrl' cdk-outputs.json)"
+          } >> "$GITHUB_STEP_SUMMARY"
