@@ -397,6 +397,27 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
       },
       "Type": "AWS::SNS::TopicPolicy",
     },
+    "ApiBadRequestBodyC59DD21C": {
+      "Properties": {
+        "ResponseTemplates": {
+          "application/json": "{"message":$context.error.messageString,"errors":["$context.error.validationErrorString"]}",
+        },
+        "ResponseType": "BAD_REQUEST_BODY",
+        "RestApiId": {
+          "Ref": "ApiCD79AAA0",
+        },
+      },
+      "Type": "AWS::ApiGateway::GatewayResponse",
+    },
+    "ApiBodyValidatorB3E71016": {
+      "Properties": {
+        "RestApiId": {
+          "Ref": "ApiCD79AAA0",
+        },
+        "ValidateRequestBody": true,
+      },
+      "Type": "AWS::ApiGateway::RequestValidator",
+    },
     "ApiCD79AAA0": {
       "Properties": {
         "Description": "Person service API (dev)",
@@ -567,13 +588,16 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
       "Type": "AWS::Logs::LogGroup",
       "UpdateReplacePolicy": "Delete",
     },
-    "ApiDeploymentFE1E728292a5eb5835be811be39d20105aa26366": {
+    "ApiDeploymentFE1E728244c1043fc0af474763fb9c71503a0d2f": {
       "DependsOn": [
+        "ApiBadRequestBodyC59DD21C",
         "ApipersonidGET64D3F932",
         "ApipersonidEC0495F2",
         "ApipersonGET715C57A1",
         "ApipersonPOSTC8AFBDB5",
         "Apiperson51647DE3",
+        "ApiBodyValidatorB3E71016",
+        "ApiPersonInputModel192B91B6",
       ],
       "Metadata": {
         "aws:cdk:do-not-refactor": true,
@@ -589,7 +613,7 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
     "ApiDeploymentStagedev0C9DF900": {
       "Properties": {
         "DeploymentId": {
-          "Ref": "ApiDeploymentFE1E728292a5eb5835be811be39d20105aa26366",
+          "Ref": "ApiDeploymentFE1E728244c1043fc0af474763fb9c71503a0d2f",
         },
         "MethodSettings": [
           {
@@ -891,6 +915,56 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
       "Type": "AWS::Logs::LogGroup",
       "UpdateReplacePolicy": "Delete",
     },
+    "ApiPersonInputModel192B91B6": {
+      "Properties": {
+        "ContentType": "application/json",
+        "Name": "PersonInput",
+        "RestApiId": {
+          "Ref": "ApiCD79AAA0",
+        },
+        "Schema": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "additionalProperties": false,
+          "description": "All fields are required, must contain a non-space character and may be at most 200 characters. Values are trimmed. Other fields are rejected.",
+          "properties": {
+            "address": {
+              "description": "Free text",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string",
+            },
+            "firstName": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string",
+            },
+            "lastName": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string",
+            },
+            "phoneNumber": {
+              "description": "Any common format. Numbers without a country code are read as Dutch, so \`06 12345678\` becomes \`+31612345678\`. Invalid numbers are rejected.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string",
+            },
+          },
+          "required": [
+            "firstName",
+            "lastName",
+            "phoneNumber",
+            "address",
+          ],
+          "type": "object",
+        },
+      },
+      "Type": "AWS::ApiGateway::Model",
+    },
     "Apiperson51647DE3": {
       "Properties": {
         "ParentId": {
@@ -1084,6 +1158,14 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
               ],
             ],
           },
+        },
+        "RequestModels": {
+          "application/json": {
+            "Ref": "ApiPersonInputModel192B91B6",
+          },
+        },
+        "RequestValidatorId": {
+          "Ref": "ApiBodyValidatorB3E71016",
         },
         "ResourceId": {
           "Ref": "Apiperson51647DE3",

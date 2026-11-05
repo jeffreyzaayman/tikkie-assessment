@@ -72,7 +72,9 @@ on the API. A plain `curl` gets `403`; use [awscurl](https://github.com/okigan/a
 
 The full contract is in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.0). To browse it, open
 it in [Swagger Editor](https://editor.swagger.io) or run
-`npx @redocly/cli preview-docs api/openapi.yaml`.
+`npx @redocly/cli preview-docs api/openapi.yaml`. The file is generated from
+[`lib/openapi.ts`](lib/openapi.ts) with `npm run openapi`; don't edit it by hand. A test fails when
+it is out of date.
 
 ### `POST /person`
 
@@ -84,7 +86,10 @@ awscurl --service execute-api --region eu-west-1 -X POST \
 ```
 
 All four fields are required, must be non-empty strings of at most 200 characters, and no other
-fields are allowed.
+fields are allowed. API Gateway checks this shape before the Lambda runs, with a JSON Schema model
+defined once in [`lib/api-schemas.ts`](lib/api-schemas.ts); the OpenAPI document uses the same
+schema. The Lambda then validates everything again, normalises the phone number and checks for
+duplicates.
 
 | Status            | When                                                          | Body                                                  |
 | ----------------- | ------------------------------------------------------------- | ----------------------------------------------------- |
@@ -199,6 +204,7 @@ resource is tagged with `Service` and `Stage`.
 ```bash
 npm test             # Vitest: handlers (AWS SDK mocked), event mapping, CDK assertions and snapshots
 npm run test:update  # update CDK snapshots after an intended infrastructure change
+npm run openapi      # regenerate api/openapi.yaml after changing lib/openapi.ts or lib/api-schemas.ts
 npm run typecheck
 npm run lint
 npm run format:check
@@ -207,7 +213,9 @@ npx cdk synth -c stage=dev
 
 ```
 bin/        CDK app: one Person Service and one Welcome Service stack per stage
-lib/        CDK constructs (storage, API, events, alarms) and stacks
+api/        Generated OpenAPI document
+lib/        CDK constructs (storage, API, events, alarms) and stacks, OpenAPI source
+scripts/    Code generation (api/openapi.yaml)
 src/        Lambda handlers and the domain code they share (validation, event mapping)
 test/       Unit tests and CDK template tests
 ```
@@ -233,8 +241,9 @@ test/       Unit tests and CDK template tests
   event that carries only the id plus what consumers really need.
 - **No CI/CD.** Deploys are manual `cdk deploy` runs. Next: GitHub Actions for lint and tests,
   then deploys to dev and prod through an OIDC role.
-- **Validation lives only in the Lambda.** Next: an API Gateway request model to reject bad
-  requests at the edge, and Zod as the single schema in the handler.
+- **Two validation layers.** API Gateway checks the body's shape and the Lambda checks it again
+  by hand. Next: Zod in the handler, generated from or checked against the same schema. Query and
+  path parameters are checked only in the Lambdas: API Gateway can only check that they exist.
 - **Observability.** No tracing or correlation id from the API request to the consumer yet. Next:
   Powertools for AWS Lambda (Logger, Tracer, Metrics) and X-Ray.
 - **Welcome Service crash window.** If the Lambda crashes or times out between claiming an

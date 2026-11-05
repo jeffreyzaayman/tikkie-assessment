@@ -1,11 +1,16 @@
 import {
   AuthorizationType,
   EndpointType,
+  JsonSchemaVersion,
   LambdaIntegration,
+  Model,
+  RequestValidator,
+  ResponseType,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
 import type { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
+import { personInputSchema } from './api-schemas';
 import { handlerFunction } from './handler-function';
 import type { PersonStorage } from './person-storage';
 import type { Stage } from './stage';
@@ -14,6 +19,9 @@ export interface PersonApiProps {
   readonly stage: Stage;
   readonly storage: PersonStorage;
 }
+
+// Stage throttling, also stated in the OpenAPI document.
+export const API_THROTTLING = { rateLimit: 10, burstLimit: 20 } as const;
 
 // REST API for the person service. Every method requires IAM (SigV4) auth.
 export class PersonApi extends Construct {
@@ -61,13 +69,40 @@ export class PersonApi extends Construct {
       defaultMethodOptions: { authorizationType: AuthorizationType.IAM },
       deployOptions: {
         stageName: stage,
-        throttlingRateLimit: 10,
-        throttlingBurstLimit: 20,
+        throttlingRateLimit: API_THROTTLING.rateLimit,
+        throttlingBurstLimit: API_THROTTLING.burstLimit,
+      },
+    });
+
+    /*
+     * API Gateway rejects create-person bodies of the wrong shape before the Lambda runs (no
+     * invocation cost). The Lambda still validates everything: it is the source of truth, and a
+     * request with another Content-Type skips this model.
+     */
+    const personInputModel = new Model(this, 'PersonInputModel', {
+      restApi: this.api,
+      contentType: 'application/json',
+      modelName: 'PersonInput',
+      schema: { ...personInputSchema, schema: JsonSchemaVersion.DRAFT4 },
+    });
+    const bodyValidator = new RequestValidator(this, 'BodyValidator', {
+      restApi: this.api,
+      validateRequestBody: true,
+    });
+    // Same shape as the Lambda's 400s. messageString is already a quoted JSON string.
+    this.api.addGatewayResponse('BadRequestBody', {
+      type: ResponseType.BAD_REQUEST_BODY,
+      templates: {
+        'application/json':
+          '{"message":$context.error.messageString,"errors":["$context.error.validationErrorString"]}',
       },
     });
 
     const persons = this.api.root.addResource('person');
-    persons.addMethod('POST', new LambdaIntegration(this.createPersonFunction));
+    persons.addMethod('POST', new LambdaIntegration(this.createPersonFunction), {
+      requestModels: { 'application/json': personInputModel },
+      requestValidator: bodyValidator,
+    });
     persons.addMethod('GET', new LambdaIntegration(this.listPersonsFunction));
 
     const person = persons.addResource('{id}');

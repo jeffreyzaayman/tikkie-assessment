@@ -40,6 +40,54 @@ describe('PersonServiceStack', () => {
     template.allResourcesProperties('AWS::ApiGateway::Method', { AuthorizationType: 'AWS_IAM' });
   });
 
+  describe('create-person request validation', () => {
+    it('has a PersonInput model built from the shared schema', () => {
+      synth('dev').hasResourceProperties('AWS::ApiGateway::Model', {
+        Name: 'PersonInput',
+        ContentType: 'application/json',
+        Schema: {
+          $schema: 'http://json-schema.org/draft-04/schema#',
+          type: 'object',
+          required: ['firstName', 'lastName', 'phoneNumber', 'address'],
+          additionalProperties: false,
+          properties: {
+            phoneNumber: Match.objectLike({ type: 'string', maxLength: 200, pattern: '\\S' }),
+          },
+        },
+      });
+    });
+
+    it('validates the POST body against the model, and only the body', () => {
+      const template = synth('dev');
+      template.hasResourceProperties('AWS::ApiGateway::RequestValidator', {
+        ValidateRequestBody: true,
+        // Absent means false: query and path parameters stay with the Lambdas.
+        ValidateRequestParameters: Match.absent(),
+      });
+      template.hasResourceProperties('AWS::ApiGateway::Method', {
+        HttpMethod: 'POST',
+        RequestModels: {
+          'application/json': { Ref: Match.stringLikeRegexp('^ApiPersonInputModel') },
+        },
+        RequestValidatorId: { Ref: Match.stringLikeRegexp('^ApiBodyValidator') },
+      });
+      template.resourcePropertiesCountIs(
+        'AWS::ApiGateway::Method',
+        { RequestValidatorId: Match.anyValue() },
+        1,
+      );
+    });
+
+    it('returns rejected bodies in the same shape as the Lambda', () => {
+      synth('dev').hasResourceProperties('AWS::ApiGateway::GatewayResponse', {
+        ResponseType: 'BAD_REQUEST_BODY',
+        ResponseTemplates: {
+          'application/json': Match.stringLikeRegexp('"message":.*"errors":\\['),
+        },
+      });
+    });
+  });
+
   describe('least-privilege table access', () => {
     const tableArn = (logicalIdPrefix: string) => ({
       'Fn::GetAtt': [Match.stringLikeRegexp(`^Storage${logicalIdPrefix}`), 'Arn'],

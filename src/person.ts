@@ -16,8 +16,8 @@ export type ParseResult =
   | { readonly ok: true; readonly value: PersonInput }
   | { readonly ok: false; readonly errors: readonly string[] };
 
-const FIELDS = ['firstName', 'lastName', 'phoneNumber', 'address'] as const;
-const MAX_LENGTH = 200;
+export const PERSON_INPUT_FIELDS = ['firstName', 'lastName', 'phoneNumber', 'address'] as const;
+export const MAX_FIELD_LENGTH = 200;
 
 // Numbers without a country code (e.g. "06 12345678") are read as Dutch.
 const DEFAULT_PHONE_REGION = 'NL';
@@ -36,19 +36,19 @@ export function parsePersonInput(body: unknown): ParseResult {
   const errors: string[] = [];
 
   const unknownFields = Object.keys(record).filter(
-    (key) => !(FIELDS as readonly string[]).includes(key),
+    (key) => !(PERSON_INPUT_FIELDS as readonly string[]).includes(key),
   );
   if (unknownFields.length > 0) {
     errors.push(`Unknown field(s): ${unknownFields.join(', ')}`);
   }
 
   const value: Record<string, string> = {};
-  for (const field of FIELDS) {
+  for (const field of PERSON_INPUT_FIELDS) {
     const raw = record[field];
     if (typeof raw !== 'string' || raw.trim() === '') {
       errors.push(`${field} is required and must be a non-empty string`);
-    } else if (raw.trim().length > MAX_LENGTH) {
-      errors.push(`${field} must be at most ${MAX_LENGTH} characters`);
+    } else if (raw.trim().length > MAX_FIELD_LENGTH) {
+      errors.push(`${field} must be at most ${MAX_FIELD_LENGTH} characters`);
     } else if (field === 'phoneNumber') {
       const normalised = toE164(raw.trim());
       if (normalised === undefined) {
