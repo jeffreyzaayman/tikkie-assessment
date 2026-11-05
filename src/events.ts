@@ -12,9 +12,9 @@ export const PERSON_CREATED = 'PersonCreated';
 export interface PersonCreatedEvent {
   readonly eventType: typeof PERSON_CREATED;
   readonly version: 1;
-  /** Unique per event and stable across redeliveries, so consumers can deduplicate on it. */
+  // Unique per event and stable across redeliveries, so consumers can deduplicate on it.
   readonly eventId: string;
-  /** When the person was created (ISO 8601). */
+  // When the person was created (ISO 8601).
   readonly occurredAt: string;
   readonly data: Person;
 }

@@ -13,7 +13,7 @@ const person = {
   createdAt: '2026-11-04T14:12:09.077Z',
 };
 
-/** A persons-table stream record as the Pipe passes it to the enrichment Lambda. */
+// A persons-table stream record as the Pipe passes it to the enrichment Lambda.
 function streamRecord(overrides: Partial<DynamoDBRecord> = {}, item: object = person) {
   return {
     eventID: 'c4ca4238a0b923820dcc509a6f75849b',

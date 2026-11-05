@@ -11,7 +11,7 @@ const MAX_LIMIT = 100;
 
 export interface PersonPage {
   readonly items: readonly Person[];
-  /** Pass as `cursor` to get the next page; absent on the last page. */
+  // Pass as `cursor` to get the next page; absent on the last page.
   readonly nextCursor?: string;
 }
 
@@ -62,7 +62,7 @@ export async function handler(
   }
 }
 
-/** Returns the page size, or undefined if the query value is invalid. */
+// Returns the page size, or undefined if the query value is invalid.
 function parseLimit(raw: string | undefined): number | undefined {
   if (raw === undefined) {
     return DEFAULT_LIMIT;
@@ -74,7 +74,7 @@ function parseLimit(raw: string | undefined): number | undefined {
   return limit >= 1 && limit <= MAX_LIMIT ? limit : undefined;
 }
 
-/** The cursor is the scan's LastEvaluatedKey ({ id }) as base64url JSON. Opaque to clients. */
+// The cursor is the scan's LastEvaluatedKey ({ id }) as base64url JSON. Opaque to clients.
 function encodeCursor(key: Record<string, unknown>): string {
   return Buffer.from(JSON.stringify({ id: key.id })).toString('base64url');
 }

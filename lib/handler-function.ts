@@ -10,7 +10,7 @@ const HANDLERS_DIR = join(import.meta.dirname, '..', 'src', 'handlers');
 
 export interface HandlerFunctionProps {
   readonly stage: Stage;
-  /** File name in src/handlers, e.g. `create-person.ts`. */
+  // File name in src/handlers, e.g. `create-person.ts`.
   readonly entryFile: string;
   readonly environment?: Record<string, string>;
 }

@@ -21,7 +21,7 @@ function synth(stage: Stage): Template {
   return template;
 }
 
-/** The logical ID of the CloudFormation parameter that resolves the topic ARN from SSM. */
+// The logical ID of the CloudFormation parameter that resolves the topic ARN from SSM.
 function topicArnParameter(template: Template): string {
   const [id] = Object.keys(
     template.findParameters('*', { Type: 'AWS::SSM::Parameter::Value<String>' }),

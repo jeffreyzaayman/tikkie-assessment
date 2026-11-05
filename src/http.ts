@@ -1,6 +1,6 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 
-/** Builds a JSON API Gateway proxy response. */
+// Builds a JSON API Gateway proxy response.
 export function json(
   statusCode: number,
   body: unknown,
@@ -13,7 +13,7 @@ export function json(
   };
 }
 
-/** Reads a required environment variable, failing loudly if the deployment forgot it. */
+// Reads a required environment variable, failing loudly if the deployment forgot it.
 export function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {

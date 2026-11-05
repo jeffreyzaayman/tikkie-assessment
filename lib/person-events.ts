@@ -14,7 +14,7 @@ import type { Stage } from './stage';
 
 export interface PersonEventsProps {
   readonly stage: Stage;
-  /** The persons table; its stream (NEW_IMAGE) is the event source. */
+  // The persons table; its stream (NEW_IMAGE) is the event source.
   readonly persons: TableV2;
 }
 
@@ -43,14 +43,18 @@ export class PersonEvents extends Construct {
       throw new Error('The persons table needs a stream for person-created events');
     }
 
-    // Fixed name, so the ARN (and the consumers' subscriptions) survive a stack update; a change
-    // that would replace the topic fails instead. Retained in prod like the tables.
-    // Unencrypted for now: see the encryption TODO in docs/PLAN.md.
+    /*
+     * Fixed name, so the ARN (and the consumers' subscriptions) survive a stack update; a change
+     * that would replace the topic fails instead. Retained in prod like the tables.
+     * Unencrypted for now: see the encryption TODO in docs/PLAN.md.
+     */
     this.topic = new Topic(this, 'Topic', { topicName: name, enforceSSL: true });
     this.topic.applyRemovalPolicy(removalPolicy);
 
-    // Records the Pipe can't deliver after its retries. For stream sources the message holds the
-    // shard and sequence numbers, not the record: reprocess within the stream's 24h retention.
+    /*
+     * Records the Pipe can't deliver after its retries. For stream sources the message holds the
+     * shard and sequence numbers, not the record: reprocess within the stream's 24h retention.
+     */
     this.deadLetterQueue = new Queue(this, 'DeadLetterQueue', {
       encryption: QueueEncryption.SQS_MANAGED,
       enforceSSL: true,

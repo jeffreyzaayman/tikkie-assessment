@@ -56,7 +56,7 @@ export function parsePersonInput(body: unknown): ParseResult {
 // Ids are created with crypto.randomUUID() (v4).
 const PERSON_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** True if the value has the shape of a person id (a v4 UUID, any case). */
+// True if the value has the shape of a person id (a v4 UUID, any case).
 export function isPersonId(value: unknown): value is string {
   return typeof value === 'string' && PERSON_ID_PATTERN.test(value);
 }

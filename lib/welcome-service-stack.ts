@@ -15,7 +15,7 @@ export interface WelcomeServiceStackProps extends StackProps {
   readonly stage: Stage;
 }
 
-/** Retries before a message moves to the dead-letter queue. */
+// Retries before a message moves to the dead-letter queue.
 const MAX_RECEIVE_COUNT = 5;
 
 /**
@@ -51,8 +51,10 @@ export class WelcomeServiceStack extends Stack {
     );
     const topic = Topic.fromTopicArn(this, 'PersonCreatedTopic', topicArn);
 
-    // SSE-SQS, not the AWS-managed aws/sqs KMS key: SNS can't use that key, and deliveries
-    // would fail silently.
+    /*
+     * SSE-SQS, not the AWS-managed aws/sqs KMS key: SNS can't use that key, and deliveries
+     * would fail silently.
+     */
     const queueDefaults = {
       encryption: QueueEncryption.SQS_MANAGED,
       enforceSSL: true,
@@ -72,15 +74,19 @@ export class WelcomeServiceStack extends Stack {
       deadLetterQueue: { queue: this.deadLetterQueue, maxReceiveCount: MAX_RECEIVE_COUNT },
     });
 
-    // Messages SNS couldn't deliver to the queue at all (e.g. a broken queue policy). SNS doesn't
-    // retry those, so without this queue they would be lost.
+    /*
+     * Messages SNS couldn't deliver to the queue at all (e.g. a broken queue policy). SNS doesn't
+     * retry those, so without this queue they would be lost.
+     */
     this.subscriptionDeadLetterQueue = new Queue(this, 'SubscriptionDeadLetterQueue', {
       ...queueDefaults,
       retentionPeriod: Duration.days(14),
     });
 
-    // Raw delivery: the queue receives the PersonCreated event itself, not an SNS envelope
-    // around it. Also adds the queue policies that let only this topic send to the queues.
+    /*
+     * Raw delivery: the queue receives the PersonCreated event itself, not an SNS envelope
+     * around it. Also adds the queue policies that let only this topic send to the queues.
+     */
     topic.addSubscription(
       new SqsSubscription(this.queue, {
         rawMessageDelivery: true,

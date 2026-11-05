@@ -15,7 +15,7 @@ export interface PersonApiProps {
   readonly storage: PersonStorage;
 }
 
-/** REST API for the person service. Every method requires IAM (SigV4) auth. */
+// REST API for the person service. Every method requires IAM (SigV4) auth.
 export class PersonApi extends Construct {
   public readonly api: RestApi;
   public readonly createPersonFunction: NodejsFunction;
