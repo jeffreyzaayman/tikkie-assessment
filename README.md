@@ -1,8 +1,6 @@
 # Person Service
 
-A serverless microservice on AWS that stores persons and publishes a `PersonCreated` event to
-the rest of the microservice landscape for every new person. Built with AWS CDK (TypeScript) and
-Lambdas on Node.js 24.
+A serverless microservice on AWS that stores persons and publishes a `PersonCreated` event to the rest of the microservice landscape for every new person. Built with AWS CDK (TypeScript) and Lambdas on Node.js 24.
 
 - `POST /person` creates a person (first name, last name, phone number, address) in DynamoDB.
 - Each new person fires a versioned `PersonCreated` event on an SNS topic.
@@ -44,38 +42,21 @@ flowchart LR
 ### How a person is created
 
 1. API Gateway checks the caller's IAM signature and throttles the stage (1000 rps, burst 2000).
-2. `CreatePerson` validates and trims the body, and normalises the phone number to E.164
-   (`06 12345678` → `+31612345678`; numbers without a country code are read as Dutch).
-3. In one DynamoDB transaction it writes the person to `persons` and claims the phone number in
-   `phoneNumbers`. If the number is already taken, the transaction fails and the API returns
-   `409`, so no race can create a duplicate. If DynamoDB throttles, or a concurrent request
-   wrote the same item, nothing is stored and the API returns `503` with `Retry-After`.
-4. The `persons` table stream feeds an EventBridge Pipe. The Pipe keeps only `INSERT`s, turns
-   each one into a `PersonCreated` event (enrichment Lambda) and publishes it to SNS.
+2. `CreatePerson` validates and trims the body, and normalises the phone number to E.164 (`06 12345678` → `+31612345678`; numbers without a country code are read as Dutch).
+3. In one DynamoDB transaction it writes the person to `persons` and claims the phone number in `phoneNumbers`. If the number is already taken, the transaction fails and the API returns `409`, so no race can create a duplicate. If DynamoDB throttles, or a concurrent request wrote the same item, nothing is stored and the API returns `503` with `Retry-After`.
+4. The `persons` table stream feeds an EventBridge Pipe. The Pipe keeps only `INSERT`s, turns each one into a `PersonCreated` event (enrichment Lambda) and publishes it to SNS.
 
-The event comes from the table stream, not from the API Lambda (the outbox pattern). An event
-exists only if the write committed, and a failed publish can't leave a person without an event.
+The event comes from the table stream, not from the API Lambda (the outbox pattern). An event exists only if the write committed, and a failed publish can't leave a person without an event.
 
 ### The microservice landscape
 
-The Person Service doesn't know who consumes its events. It publishes the topic ARN to the SSM
-parameter `/person-service/<stage>/person-created-topic-arn`. That parameter name and the event
-schema are its only public contracts. The Welcome Service reads the parameter at deploy time and
-owns its own subscription, queue, dead-letter queues and alarms. No CloudFormation exports link
-the two stacks, so each one can be deployed alone. In a real landscape the Welcome Service would
-live in its own repository and account.
+The Person Service doesn't know who consumes its events. It publishes the topic ARN to the SSM parameter `/person-service/<stage>/person-created-topic-arn`. That parameter name and the event schema are its only public contracts. The Welcome Service reads the parameter at deploy time and owns its own subscription, queue, dead-letter queues and alarms. No CloudFormation exports link the two stacks, so each one can be deployed alone. In a real landscape the Welcome Service would live in its own repository and account.
 
 ## API
 
-Every method requires IAM authentication (AWS Signature V4). The caller needs `execute-api:Invoke`
-on the API. A plain `curl` gets `403`; use [awscurl](https://github.com/okigan/awscurl), Postman's
-"AWS Signature" auth or an AWS SDK.
+Every method requires IAM authentication (AWS Signature V4). The caller needs `execute-api:Invoke` on the API. A plain `curl` gets `403`; use [awscurl](https://github.com/okigan/awscurl), Postman's "AWS Signature" auth or an AWS SDK.
 
-The full contract is in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.0). To browse it, open
-it in [Swagger Editor](https://editor.swagger.io) or run
-`npx @redocly/cli preview-docs api/openapi.yaml`. The file is generated from
-[`lib/openapi.ts`](lib/openapi.ts) with `npm run openapi`; don't edit it by hand. A test fails when
-it is out of date.
+The full contract is in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.0). To browse it, open it in [Swagger Editor](https://editor.swagger.io) or run `npx @redocly/cli preview-docs api/openapi.yaml`. The file is generated from [`lib/openapi.ts`](lib/openapi.ts) with `npm run openapi`; don't edit it by hand. A test fails when it is out of date.
 
 ### `POST /person`
 
@@ -86,11 +67,7 @@ awscurl --service execute-api --region eu-west-1 -X POST \
   "${API_URL}person"
 ```
 
-All four fields are required, must be non-empty strings of at most 200 characters, and no other
-fields are allowed. API Gateway checks this shape before the Lambda runs, with a JSON Schema model
-defined once in [`lib/api-schemas.ts`](lib/api-schemas.ts); the OpenAPI document uses the same
-schema. The Lambda then validates everything again, normalises the phone number and checks for
-duplicates.
+All four fields are required, must be non-empty strings of at most 200 characters, and no other fields are allowed. API Gateway checks this shape before the Lambda runs, with a JSON Schema model defined once in [`lib/api-schemas.ts`](lib/api-schemas.ts); the OpenAPI document uses the same schema. The Lambda then validates everything again, normalises the phone number and checks for duplicates.
 
 | Status            | When                                                          | Body                                                  |
 | ----------------- | ------------------------------------------------------------- | ----------------------------------------------------- |
@@ -112,15 +89,11 @@ duplicates.
 
 ### `GET /person/{id}`
 
-Returns `200` with the person, `404` if there is none, or `400` if the id isn't a UUID. The read
-is strongly consistent, so following the `Location` header right after a `POST` always finds the
-person.
+Returns `200` with the person, `404` if there is none, or `400` if the id isn't a UUID. The read is strongly consistent, so following the `Location` header right after a `POST` always finds the person.
 
 ### `GET /person?limit=20&cursor=...`
 
-Returns one page: `{ "items": [...], "nextCursor": "..." }`. `limit` is 1–100 (default 20). Pass
-`nextCursor` back as `cursor` for the next page, and stop when it is absent. The order is not
-defined, and a page may be empty while `nextCursor` is still present.
+Returns one page: `{ "items": [...], "nextCursor": "..." }`. `limit` is 1–100 (default 20). Pass `nextCursor` back as `cursor` for the next page, and stop when it is absent. The order is not defined, and a page may be empty while `nextCursor` is still present.
 
 ## The `PersonCreated` event
 
@@ -143,27 +116,17 @@ Published on SNS topic `person-service-<stage>-person-created`:
 }
 ```
 
-- **Contract:** defined in [`src/events.ts`](src/events.ts). Additive changes keep `version: 1`;
-  breaking changes need a new version. The fields in `data` are picked one by one, so a new table
-  attribute never leaks into the event.
-- **Delivery is at least once.** `eventId` is the stream record's id: unique per person and the
-  same on every redelivery, so consumers deduplicate on it. The Welcome Service claims each
-  `eventId` with a conditional write before it acts.
-- **Failures:** the Pipe retries 10 times, splits failing batches in half, then sends the record
-  to a dead-letter queue. That message holds the stream position, not the person, so it must be
-  reprocessed within the stream's 24-hour retention. An alarm fires on the first message.
+- **Contract:** defined in [`src/events.ts`](src/events.ts). Additive changes keep `version: 1`; breaking changes need a new version. The fields in `data` are picked one by one, so a new table attribute never leaks into the event.
+- **Delivery is at least once.** `eventId` is the stream record's id: unique per person and the same on every redelivery, so consumers deduplicate on it. The Welcome Service claims each `eventId` with a conditional write before it acts.
+- **Failures:** the Pipe retries 10 times, splits failing batches in half, then sends the record to a dead-letter queue. That message holds the stream position, not the person, so it must be reprocessed within the stream's 24-hour retention. An alarm fires on the first message.
 
 ## Deploying
 
 ### Prerequisites
 
-- Node.js 24 and npm. The [dev container](.devcontainer/) has the toolchain ready, including the
-  AWS CLI and the CDK CLI.
-- AWS credentials for the target account in the environment (`AWS_ACCESS_KEY_ID`,
-  `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`).
-- Each stage is bound to an account in [`cdk.json`](cdk.json) (`stageAccounts`). CDK refuses to
-  deploy when the credentials belong to another account, so dev keys can never change prod. To
-  deploy into your own accounts, change these ids.
+- Node.js 24 and npm. The [dev container](.devcontainer/) has the toolchain ready, including the AWS CLI and the CDK CLI.
+- AWS credentials for the target account in the environment (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`).
+- Each stage is bound to an account in [`cdk.json`](cdk.json) (`stageAccounts`). CDK refuses to deploy when the credentials belong to another account, so dev keys can never change prod. To deploy into your own accounts, change these ids.
 
 ### Commands
 
@@ -179,17 +142,10 @@ The stack outputs `ApiUrl` (ends in `/<stage>/`) and `PersonCreatedTopicArn`.
 
 ### From GitHub Actions
 
-- **CI** ([`ci.yml`](.github/workflows/ci.yml)) runs on every pull request and push to `main`:
-  format check, lint, typecheck, tests (including the CDK snapshots and the OpenAPI drift check)
-  and `cdk synth` of both stages. It needs no AWS credentials.
-- **Deploy** ([`deploy.yml`](.github/workflows/deploy.yml)) runs only by hand (Actions → Deploy →
-  Run workflow, then pick a stage). It runs CI first, checks that the credentials still work, then
-  runs `cdk deploy --all` with the stage and alarm email. `prod` can only be deployed from `main`,
-  and only when you type `prod` in the confirm field. That stands in for required reviewers,
-  which GitHub doesn't offer for private repositories on the Free plan.
+- **CI** ([`ci.yml`](.github/workflows/ci.yml)) runs on every pull request and push to `main`: format check, lint, typecheck, tests (including the CDK snapshots and the OpenAPI drift check) and `cdk synth` of both stages. It needs no AWS credentials.
+- **Deploy** ([`deploy.yml`](.github/workflows/deploy.yml)) runs only by hand (Actions → Deploy → Run workflow, then pick a stage). It runs CI first, checks that the credentials still work, then runs `cdk deploy --all` with the stage and alarm email. `prod` can only be deployed from `main`, and only when you type `prod` in the confirm field. That stands in for required reviewers, which GitHub doesn't offer for private repositories on the Free plan.
 
-The AWS credentials are short-lived, which is why the deploy isn't triggered by a push. Before
-each run, paste fresh keys into the GitHub environment of the stage (Settings → Environments):
+The AWS credentials are short-lived, which is why the deploy isn't triggered by a push. Before each run, paste fresh keys into the GitHub environment of the stage (Settings → Environments):
 
 | Name                    | Kind                | Value                                       |
 | ----------------------- | ------------------- | ------------------------------------------- |
@@ -198,10 +154,7 @@ each run, paste fresh keys into the GitHub environment of the stage (Settings �
 | `AWS_SESSION_TOKEN`     | Secret              | Session token                               |
 | `ALARM_EMAIL`           | Variable (optional) | Address subscribed to the alarm topics      |
 
-Create one environment per stage, named `dev` and `prod`. If the repository is public (or on a
-paid plan), also add yourself as a required reviewer on `prod` and limit its deployment branches
-to `main`. The keys must stay valid for the whole deploy (usually a few minutes): if they expire
-while CDK waits for CloudFormation, the run fails, although CloudFormation finishes the update.
+Create one environment per stage, named `dev` and `prod`. If the repository is public (or on a paid plan), also add yourself as a required reviewer on `prod` and limit its deployment branches to `main`. The keys must stay valid for the whole deploy (usually a few minutes): if they expire while CDK waits for CloudFormation, the run fails, although CloudFormation finishes the update.
 
 ### Differences between stages
 
@@ -212,35 +165,23 @@ while CDK waits for CloudFormation, the run fails, although CloudFormation finis
 | DynamoDB deletion protection              | Off         | On           |
 | Point-in-time recovery                    | On          | On           |
 
-Resource names carry the stage (`person-service-dev`, `PersonService-prod`, ...), and every
-resource is tagged with `Service` and `Stage`.
+Resource names carry the stage (`person-service-dev`, `PersonService-prod`, ...), and every resource is tagged with `Service` and `Stage`.
 
 ## Operations
 
-- **Scaling:** Lambda, API Gateway, on-demand DynamoDB, Pipes, SNS and SQS all scale with traffic
-  and cost close to nothing when idle. There are no servers to manage.
+- **Scaling:** Lambda, API Gateway, on-demand DynamoDB, Pipes, SNS and SQS all scale with traffic and cost close to nothing when idle. There are no servers to manage.
 - **Bursts:** sized for bursts of 1000 new persons per second:
   - API Gateway throttles the stage at 1000 rps, bursts up to 2000.
-  - `CreatePerson` has 1024 MB (more CPU, so fewer instances are needed), and in prod 500
-    reserved concurrency, which is also its maximum.
-  - On-demand tables take 4,000 writes/s from the start. A create costs 2 write units per table
-    (transactions cost double), so a burst of 2000 creates/s still fits.
+  - `CreatePerson` has 1024 MB (more CPU, so fewer instances are needed), and in prod 500 reserved concurrency, which is also its maximum.
+  - On-demand tables take 4,000 writes/s from the start. A create costs 2 write units per table (transactions cost double), so a burst of 2000 creates/s still fits.
   - The Pipe reads batches of 100 records, 10 batches per stream shard in parallel.
   - The Welcome consumer runs at most 50 Lambdas; the queue absorbs the rest of a burst.
 
-  Before relying on this, check the Lambda concurrency quota of each account
-  (`aws lambda get-account-settings`): prod needs at least 600 for the reservation (AWS keeps
-  100 unreserved), and new accounts often start much lower. Then load-test dev with SigV4-signed
-  requests.
+  Before relying on this, check the Lambda concurrency quota of each account (`aws lambda get-account-settings`): prod needs at least 600 for the reservation (AWS keeps 100 unreserved), and new accounts often start much lower. Then load-test dev with SigV4-signed requests.
 
-- **Alarms:** each service has its own alarm topic. Alarms fire on Lambda errors and throttles,
-  API 5XX responses, API traffic above 80% of the rate limit, DynamoDB write throttling, Pipe
-  throttling, any message in a dead-letter queue, and a Welcome queue backlog older than
-  5 minutes.
-- **Logs:** structured JSON, kept for one month. Handlers log ids and error names only, never
-  names, phone numbers or addresses. The Pipe logs errors only, without the record contents.
-- **Security:** IAM auth on every method, least-privilege grants (for example, `CreatePerson` may
-  only `PutItem`), TLS enforced on topics and queues, SQS encrypted at rest.
+- **Alarms:** each service has its own alarm topic. Alarms fire on Lambda errors and throttles, API 5XX responses, API traffic above 80% of the rate limit, DynamoDB write throttling, Pipe throttling, any message in a dead-letter queue, and a Welcome queue backlog older than 5 minutes.
+- **Logs:** structured JSON, kept for one month. Handlers log ids and error names only, never names, phone numbers or addresses. The Pipe logs errors only, without the record contents.
+- **Security:** IAM auth on every method, least-privilege grants (for example, `CreatePerson` may only `PutItem`), TLS enforced on topics and queues, SQS encrypted at rest.
 
 ## Development
 
@@ -281,19 +222,9 @@ test/       Unit tests and CDK template tests
 
 ## Known limitations and next steps
 
-- **Personal data in the event.** The topic is not encrypted yet, and every subscriber receives
-  the name, phone number and address. Next: a customer-managed KMS key for the topic, and an
-  event that carries only the id plus what consumers really need.
-- **Short-lived keys pasted into GitHub.** CI runs on every push, but deploys need fresh keys in
-  the environment's secrets each time. Next: an OIDC role per account, so GitHub gets its own
-  short-lived credentials and deploys can run on every merge to `main` (prod after approval).
-- **Two validation layers.** API Gateway checks the body's shape and the Lambda checks it again
-  by hand. Next: Zod in the handler, generated from or checked against the same schema. Query and
-  path parameters are checked only in the Lambdas: API Gateway can only check that they exist.
-- **Observability.** No tracing or correlation id from the API request to the consumer yet. Next:
-  Powertools for AWS Lambda (Logger, Tracer, Metrics) and X-Ray.
-- **Welcome Service crash window.** If the Lambda crashes or times out between claiming an
-  `eventId` and finishing the welcome, retries skip that event. A claim with a "pending" state
-  and an expiry would fix this.
-- **No event filtering.** The Pipe sets no SNS message attributes, so subscribers can't use
-  filter policies yet.
+- **Personal data in the event.** The topic is not encrypted yet, and every subscriber receives the name, phone number and address. Next: a customer-managed KMS key for the topic, and an event that carries only the id plus what consumers really need.
+- **Short-lived keys pasted into GitHub.** CI runs on every push, but deploys need fresh keys in the environment's secrets each time. Next: an OIDC role per account, so GitHub gets its own short-lived credentials and deploys can run on every merge to `main` (prod after approval).
+- **Two validation layers.** API Gateway checks the body's shape and the Lambda checks it again by hand. Next: Zod in the handler, generated from or checked against the same schema. Query and path parameters are checked only in the Lambdas: API Gateway can only check that they exist.
+- **Observability.** No tracing or correlation id from the API request to the consumer yet. Next: Powertools for AWS Lambda (Logger, Tracer, Metrics) and X-Ray.
+- **Welcome Service crash window.** If the Lambda crashes or times out between claiming an `eventId` and finishing the welcome, retries skip that event. A claim with a "pending" state and an expiry would fix this.
+- **No event filtering.** The Pipe sets no SNS message attributes, so subscribers can't use filter policies yet.
