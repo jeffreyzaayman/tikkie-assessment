@@ -7,6 +7,11 @@ import { parsePersonInput, type Person } from '../person';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
+/*
+ * Position of the phone-number Put in TransactItems below. DynamoDB returns CancellationReasons in
+ * the same order as TransactItems, so this index picks the reason that says whether the number was
+ * already taken. Keep it in step if the Puts are reordered.
+ */
 const PHONE_ITEM_INDEX = 1;
 
 // Seconds a client waits before retrying a 503, sent as the Retry-After header.
