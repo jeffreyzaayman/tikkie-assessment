@@ -27,16 +27,22 @@ flowchart LR
     pipe --> topic{{SNS person-created}}
     pipe -. failures .-> pipeDlq[[Pipe DLQ]]
     topic -. ARN .-> ssm[/SSM parameter/]
+    personAlarms[CloudWatch alarms] --> personAlarmTopic{{SNS alarm topic}}
   end
 
   subgraph welcome["Welcome Service stack"]
     queue[[SQS queue]] --> welcomeFn[Welcome λ]
     welcomeFn --> processed[(processedEvents)]
     queue -. after 5 tries .-> dlq[[DLQ]]
+    subDlq[[Subscription DLQ]]
+    welcomeAlarms[CloudWatch alarms] --> welcomeAlarmTopic{{SNS alarm topic}}
   end
 
   topic -- "raw delivery" --> queue
+  topic -. "undeliverable" .-> subDlq
   ssm -. looked up at deploy .-> welcome
+  personAlarmTopic -. optional .-> email([Alarm email])
+  welcomeAlarmTopic -. optional .-> email
 ```
 
 ### How a person is created
