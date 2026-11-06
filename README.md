@@ -69,12 +69,12 @@ awscurl --service execute-api --region eu-west-1 -X POST \
 
 All four fields are required, must be non-empty strings of at most 200 characters, and no other fields are allowed. API Gateway checks this shape before the Lambda runs, with a JSON Schema model defined once in [`lib/api-schemas.ts`](lib/api-schemas.ts); the OpenAPI document uses the same schema. The Lambda then validates everything again, normalises the phone number and checks for duplicates.
 
-| Status            | When                                                          | Body                                                  |
-| ----------------- | ------------------------------------------------------------- | ----------------------------------------------------- |
-| `201 Created`     | Person stored                                                 | The person; `Location: /person/{id}` header           |
+| Status | When | Body |
+| --- | --- | --- |
+| `201 Created` | Person stored | The person; `Location: /person/{id}` header |
 | `400 Bad Request` | Invalid JSON, missing or unknown fields, invalid phone number | `{ "message": "Validation failed", "errors": [...] }` |
-| `409 Conflict`    | A person with this phone number already exists                | `{ "message": "..." }`                                |
-| `500`             | Unexpected error (logged without personal data)               | `{ "message": "Internal server error" }`              |
+| `409 Conflict` | A person with this phone number already exists | `{ "message": "..." }` |
+| `500` | Unexpected error (logged without personal data) | `{ "message": "Internal server error" }` |
 
 ```json
 {
@@ -207,18 +207,18 @@ test/       Unit tests and CDK template tests
 
 ## Design decisions
 
-| Decision                                      | Why                                                                                                                            | Trade-off                                                                            |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| AWS CDK in TypeScript                         | Same language as the Lambdas, typed, `grant*` helpers for least privilege                                                      | Synthesised CloudFormation is less direct to read than SAM's YAML                    |
-| REST API with IAM auth                        | Uses existing AWS identities; leaves room for WAF, request validation and usage plans                                          | Costs more per request than an HTTP API                                              |
-| DynamoDB, two tables                          | A transaction over `persons` and `phoneNumbers` rejects duplicate phone numbers atomically; only person items reach the stream | Two tables instead of one single-table design                                        |
-| Phone number as the duplicate key             | A clear, normalisable identity for a person                                                                                    | People who share a phone number can't both register                                  |
-| Address as a single string                    | Keeps the API simple and works for any country                                                                                 | No validation of postcode or country; structured fields are an easy, additive change |
-| Stream → Pipe → SNS (outbox pattern)          | No dual write; Pipes provides retries, filtering and a DLQ without code                                                        | Pipes is newer and harder to debug than a small Lambda                               |
-| SNS fan-out, consumers own their SQS queues   | New consumers subscribe without changes to the Person Service                                                                  | No replay or schema registry, unlike an EventBridge bus                              |
-| Topic ARN in SSM, not a CloudFormation export | Stacks deploy independently; an export would block changes to the topic                                                        | No deploy-time check that the consumer's subscription still exists                   |
-| arm64 Lambdas on Node.js 24                   | About 20% cheaper; the current LTS runtime                                                                                     | Native dependencies would need arm64 builds (none are used)                          |
-| ESM throughout, including the Lambda bundles  | One module format from source to runtime; allows top-level `await` and `import.meta` in handlers                               | A `require()` shim in each bundle for CommonJS dependencies                          |
+| Decision | Why | Trade-off |
+| --- | --- | --- |
+| AWS CDK in TypeScript | Same language as the Lambdas, typed, `grant*` helpers for least privilege | Synthesised CloudFormation is less direct to read than SAM's YAML |
+| REST API with IAM auth | Uses existing AWS identities; leaves room for WAF, request validation and usage plans | Costs more per request than an HTTP API |
+| DynamoDB, two tables | A transaction over `persons` and `phoneNumbers` rejects duplicate phone numbers atomically; only person items reach the stream | Two tables instead of one single-table design |
+| Phone number as the duplicate key | A clear, normalisable identity for a person | People who share a phone number can't both register |
+| Address as a single string | Keeps the API simple and works for any country | No validation of postcode or country; structured fields are an easy, additive change |
+| Stream → Pipe → SNS (outbox pattern) | No dual write; Pipes provides retries, filtering and a DLQ without code | Pipes is newer and harder to debug than a small Lambda |
+| SNS fan-out, consumers own their SQS queues | New consumers subscribe without changes to the Person Service | No replay or schema registry, unlike an EventBridge bus |
+| Topic ARN in SSM, not a CloudFormation export | Stacks deploy independently; an export would block changes to the topic | No deploy-time check that the consumer's subscription still exists |
+| arm64 Lambdas on Node.js 24 | About 20% cheaper; the current LTS runtime | Native dependencies would need arm64 builds (none are used) |
+| ESM throughout, including the Lambda bundles | One module format from source to runtime; allows top-level `await` and `import.meta` in handlers | A `require()` shim in each bundle for CommonJS dependencies |
 
 ## Known limitations and next steps
 
