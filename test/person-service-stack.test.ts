@@ -1,6 +1,6 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
-import { PersonServiceStack } from '../lib/person-service-stack';
+import { PersonServiceStack } from '../lib/stacks/person-service-stack';
 import { STAGES, type Stage } from '../lib/stage';
 import { testApp, withoutAssetHashes } from './support/cdk';
 

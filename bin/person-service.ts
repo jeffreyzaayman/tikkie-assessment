@@ -1,8 +1,8 @@
 import { App } from 'aws-cdk-lib';
-import { PersonServiceStack } from '../lib/person-service-stack';
+import { PersonServiceStack } from '../lib/stacks/person-service-stack';
 import { parseAlarmEmail } from '../lib/service-alarms';
 import { accountForStage, parseStage } from '../lib/stage';
-import { WelcomeServiceStack } from '../lib/welcome-service-stack';
+import { WelcomeServiceStack } from '../lib/stacks/welcome-service-stack';
 
 const REGION = 'eu-west-1';
 

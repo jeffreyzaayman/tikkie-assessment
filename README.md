@@ -240,7 +240,8 @@ npx cdk synth -c stage=dev
 ```
 bin/        CDK app: one Person Service and one Welcome Service stack per stage
 api/        Generated OpenAPI document
-lib/        CDK constructs (storage, API, events, alarms) and stacks, OpenAPI source
+lib/        CDK constructs (storage, API, events, alarms), OpenAPI source
+lib/stacks/ The Person Service and Welcome Service stacks that compose the constructs
 scripts/    Code generation (api/openapi.yaml)
 src/        Lambda handlers and the domain code they share (validation, event mapping)
 test/       Unit tests and CDK template tests

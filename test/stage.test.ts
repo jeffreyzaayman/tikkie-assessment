@@ -1,8 +1,8 @@
 import { App } from 'aws-cdk-lib';
 import { describe, expect, it } from 'vitest';
-import { PersonServiceStack } from '../lib/person-service-stack';
+import { PersonServiceStack } from '../lib/stacks/person-service-stack';
 import { accountForStage, parseStage } from '../lib/stage';
-import { WelcomeServiceStack } from '../lib/welcome-service-stack';
+import { WelcomeServiceStack } from '../lib/stacks/welcome-service-stack';
 import { testApp } from './support/cdk';
 
 function nodeWith(stageAccounts: unknown) {

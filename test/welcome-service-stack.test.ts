@@ -1,7 +1,7 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
 import { STAGES, type Stage } from '../lib/stage';
-import { WelcomeServiceStack } from '../lib/welcome-service-stack';
+import { WelcomeServiceStack } from '../lib/stacks/welcome-service-stack';
 import { testApp, withoutAssetHashes } from './support/cdk';
 
 const QUEUE = 'AWS::SQS::Queue';

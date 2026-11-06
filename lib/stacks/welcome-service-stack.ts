@@ -7,10 +7,10 @@ import { SqsSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
-import { personCreatedTopicArnParameterName } from './contracts';
-import { handlerFunction } from './handler-function';
-import { ServiceAlarms } from './service-alarms';
-import type { Stage } from './stage';
+import { personCreatedTopicArnParameterName } from '../contracts';
+import { handlerFunction } from '../handler-function';
+import { ServiceAlarms } from '../service-alarms';
+import type { Stage } from '../stage';
 
 export interface WelcomeServiceStackProps extends StackProps {
   readonly stage: Stage;
