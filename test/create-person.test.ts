@@ -162,6 +162,59 @@ describe('create-person handler', () => {
     expect(second.statusCode).toBe(409);
   });
 
+  it.each([
+    ['a cancelled transaction (throttled item)', cancelled(['ThrottlingError', 'None'])],
+    ['a cancelled transaction (throughput)', cancelled(['None', 'ProvisionedThroughputExceeded'])],
+    ['a cancelled transaction (concurrent write)', cancelled(['None', 'TransactionConflict'])],
+    [
+      'a ThrottlingException',
+      Object.assign(new Error('Rate exceeded'), { name: 'ThrottlingException' }),
+    ],
+    [
+      'a ProvisionedThroughputExceededException',
+      Object.assign(new Error('Throughput exceeded'), {
+        name: 'ProvisionedThroughputExceededException',
+      }),
+    ],
+    [
+      'a RequestLimitExceeded',
+      Object.assign(new Error('Limit exceeded'), { name: 'RequestLimitExceeded' }),
+    ],
+  ])('returns 503 with Retry-After for %s', async (_, error) => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    ddb.on(TransactWriteCommand).rejects(error);
+
+    const response = await handler(event(JSON.stringify(person)), context);
+
+    expect(response.statusCode).toBe(503);
+    expect(response.headers).toMatchObject({ 'Retry-After': '1' });
+    expect(JSON.parse(response.body)).toEqual({ message: 'Service is busy, retry later' });
+  });
+
+  it('returns 409, not 503, when the phone number is taken and the other item conflicted', async () => {
+    ddb
+      .on(TransactWriteCommand)
+      .rejects(cancelled(['TransactionConflict', 'ConditionalCheckFailed']));
+
+    const response = await handler(event(JSON.stringify(person)), context);
+
+    expect(response.statusCode).toBe(409);
+  });
+
+  it('logs a retryable failure without personal data', async () => {
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    ddb.on(TransactWriteCommand).rejects(cancelled(['ThrottlingError', 'None']));
+
+    await handler(event(JSON.stringify(person)), context);
+
+    const logged = log.mock.calls.flat().join(' ');
+    expect(logged).toContain('request-123');
+    expect(logged).toContain('TransactionCanceledException');
+    for (const value of Object.values(person)) {
+      expect(logged).not.toContain(value);
+    }
+  });
+
   it('returns 500 for other failures and logs no personal data', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     ddb.on(TransactWriteCommand).rejects(cancelled(['ConditionalCheckFailed', 'None']));

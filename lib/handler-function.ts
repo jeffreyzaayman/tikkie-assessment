@@ -21,6 +21,13 @@ export interface HandlerFunctionProps {
   // File name in src/handlers, e.g. `create-person.ts`.
   readonly entryFile: string;
   readonly environment?: Record<string, string>;
+  // Defaults to 256 MB. Lambda allocates CPU in proportion, so more memory also means faster.
+  readonly memorySize?: number;
+  /*
+   * Concurrency set aside for this function only, and also its maximum. Leave unset to share the
+   * account's unreserved pool.
+   */
+  readonly reservedConcurrentExecutions?: number;
 }
 
 /**
@@ -37,7 +44,8 @@ export function handlerFunction(
     entry: join(HANDLERS_DIR, props.entryFile),
     runtime: Runtime.NODEJS_24_X,
     architecture: Architecture.ARM_64,
-    memorySize: 256,
+    memorySize: props.memorySize ?? 256,
+    reservedConcurrentExecutions: props.reservedConcurrentExecutions,
     timeout: Duration.seconds(10),
     loggingFormat: LoggingFormat.JSON,
     logGroup: new LogGroup(scope, `${name}Logs`, {

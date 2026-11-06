@@ -93,7 +93,16 @@ export class PersonEvents extends Construct {
         filterCriteria: { filters: [{ pattern: JSON.stringify({ eventName: ['INSERT'] }) }] },
         dynamoDbStreamParameters: {
           startingPosition: 'LATEST',
-          batchSize: 10,
+          /*
+           * Sized for bursts of 1000 persons/s. A shard is read one batch at a time by default,
+           * so small batches would fall behind and the stream keeps records for only 24h. Larger
+           * batches mean fewer enrichment calls; the 1s window waits for a batch to fill only
+           * when traffic is low. 10 batches per shard run in parallel; order is kept per
+           * partition key, and every person has its own key.
+           */
+          batchSize: 100,
+          maximumBatchingWindowInSeconds: 1,
+          parallelizationFactor: 10,
           maximumRetryAttempts: 10,
           onPartialBatchItemFailure: 'AUTOMATIC_BISECT',
           deadLetterConfig: { arn: this.deadLetterQueue.queueArn },

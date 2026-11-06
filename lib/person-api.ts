@@ -20,8 +20,19 @@ export interface PersonApiProps {
   readonly storage: PersonStorage;
 }
 
-// Stage throttling, also stated in the OpenAPI document.
-export const API_THROTTLING = { rateLimit: 10, burstLimit: 20 } as const;
+/*
+ * Stage throttling, also stated in the OpenAPI document. Sized for bursts of 1000 new persons per
+ * second; the account-wide API Gateway quota (10,000 rps per region) leaves room for the GETs.
+ */
+export const API_THROTTLING = { rateLimit: 1000, burstLimit: 2000 } as const;
+
+/*
+ * Concurrency set aside for CreatePerson in prod. 1000 creates/s at ~100 ms each needs ~100
+ * instances; 500 leaves room for cold starts in a burst. It also caps CreatePerson, so a burst
+ * can't starve the other functions. Prod only: reserving needs an account concurrency quota of
+ * at least 600 (AWS keeps 100 unreserved), and new accounts start far lower.
+ */
+export const CREATE_PERSON_RESERVED_CONCURRENCY = 500;
 
 // REST API for the person service. Every method requires IAM (SigV4) auth.
 export class PersonApi extends Construct {
@@ -33,10 +44,14 @@ export class PersonApi extends Construct {
   constructor(scope: Construct, id: string, props: PersonApiProps) {
     super(scope, id);
     const { stage, storage } = props;
+    const isProd = stage === 'prod';
 
     this.createPersonFunction = handlerFunction(this, 'CreatePerson', {
       stage,
       entryFile: 'create-person.ts',
+      // More CPU makes each create faster, so a burst needs fewer concurrent instances.
+      memorySize: 1024,
+      reservedConcurrentExecutions: isProd ? CREATE_PERSON_RESERVED_CONCURRENCY : undefined,
       environment: {
         PERSONS_TABLE_NAME: storage.persons.tableName,
         PHONE_NUMBERS_TABLE_NAME: storage.phoneNumbers.tableName,

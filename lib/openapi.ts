@@ -142,6 +142,18 @@ export function openApiDocument(): Record<string, unknown> {
               duplicate: 'A person with this phone number already exists',
             }),
             ...commonResponses,
+            '503': {
+              ...errorResponse(
+                'The database is throttling, or a concurrent request wrote the same phone number. Nothing was stored; send the same request again after `Retry-After` seconds.',
+                { busy: 'Service is busy, retry later' },
+              ),
+              headers: {
+                'Retry-After': {
+                  description: 'Seconds to wait before retrying',
+                  schema: { type: 'integer', example: 1 },
+                },
+              },
+            },
           },
         },
         get: {

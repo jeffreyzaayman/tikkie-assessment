@@ -1,5 +1,9 @@
 import { Duration, Stack } from 'aws-cdk-lib';
+import { MockIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { Match, Template } from 'aws-cdk-lib/assertions';
+import { AttributeType, TableV2 } from 'aws-cdk-lib/aws-dynamodb';
+import { Code, Function as LambdaFunction, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { CfnPipe } from 'aws-cdk-lib/aws-pipes';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { describe, expect, it } from 'vitest';
 import { parseAlarmEmail, ServiceAlarms } from '../lib/service-alarms';
@@ -96,6 +100,77 @@ describe('ServiceAlarms', () => {
       MetricName: 'ApproximateAgeOfOldestMessage',
       Statistic: 'Maximum',
       Threshold: 300,
+    });
+  });
+
+  it('alarms on any throttled Lambda invocation', () => {
+    const { stack, alarms } = alarmsStack();
+    const fn = new LambdaFunction(stack, 'Fn', {
+      runtime: Runtime.NODEJS_24_X,
+      handler: 'index.handler',
+      code: Code.fromInline('export const handler = () => {};'),
+    });
+    alarms.lambdaThrottles('Create', fn);
+
+    Template.fromStack(stack).hasResourceProperties(ALARM, {
+      AlarmName: 'demo-dev-CreateThrottles',
+      Namespace: 'AWS/Lambda',
+      MetricName: 'Throttles',
+      Dimensions: [{ Name: 'FunctionName', Value: { Ref: Match.stringLikeRegexp('^Fn') } }],
+      Statistic: 'Sum',
+      Threshold: 1,
+    });
+  });
+
+  it('alarms when one minute of API requests reaches 80% of the rate limit', () => {
+    const { stack, alarms } = alarmsStack();
+    const api = new RestApi(stack, 'Api');
+    api.root.addMethod('GET', new MockIntegration());
+    alarms.apiNearThrottleLimit('Api', api, 1000);
+
+    Template.fromStack(stack).hasResourceProperties(ALARM, {
+      AlarmName: 'demo-dev-ApiNearThrottleLimit',
+      Namespace: 'AWS/ApiGateway',
+      MetricName: 'Count',
+      Statistic: 'Sum',
+      Period: 60,
+      Threshold: 48_000,
+    });
+  });
+
+  it('alarms on any throttled write to a table', () => {
+    const { stack, alarms } = alarmsStack();
+    const table = new TableV2(stack, 'Table', {
+      partitionKey: { name: 'id', type: AttributeType.STRING },
+    });
+    alarms.tableWriteThrottles('Persons', table);
+
+    Template.fromStack(stack).hasResourceProperties(ALARM, {
+      AlarmName: 'demo-dev-PersonsWriteThrottles',
+      Namespace: 'AWS/DynamoDB',
+      MetricName: 'WriteThrottleEvents',
+      Dimensions: [{ Name: 'TableName', Value: { Ref: Match.stringLikeRegexp('^Table') } }],
+      Statistic: 'Sum',
+      Threshold: 1,
+    });
+  });
+
+  it('alarms when the pipe is throttled', () => {
+    const { stack, alarms, queue } = alarmsStack();
+    const pipe = new CfnPipe(stack, 'Pipe', {
+      roleArn: 'arn:aws:iam::111111111111:role/pipe',
+      source: queue.queueArn,
+      target: queue.queueArn,
+    });
+    alarms.pipeThrottled('Events', pipe);
+
+    Template.fromStack(stack).hasResourceProperties(ALARM, {
+      AlarmName: 'demo-dev-EventsThrottled',
+      Namespace: 'AWS/EventBridge/Pipes',
+      MetricName: 'ExecutionThrottled',
+      Dimensions: [{ Name: 'PipeName', Value: { Ref: 'Pipe' } }],
+      Statistic: 'Sum',
+      Threshold: 1,
     });
   });
 

@@ -1,5 +1,6 @@
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
+import { API_THROTTLING, CREATE_PERSON_RESERVED_CONCURRENCY } from '../lib/person-api';
 import { PersonServiceStack } from '../lib/stacks/person-service-stack';
 import { STAGES, type Stage } from '../lib/stage';
 import { testApp, withoutAssetHashes } from './support/cdk';
@@ -88,6 +89,48 @@ describe('PersonServiceStack', () => {
     });
   });
 
+  describe('burst capacity', () => {
+    const createPerson = {
+      Environment: { Variables: Match.objectLike({ PHONE_NUMBERS_TABLE_NAME: Match.anyValue() }) },
+    };
+
+    it('throttles the API stage at 1000 rps with bursts of 2000', () => {
+      synth('dev').hasResourceProperties('AWS::ApiGateway::Stage', {
+        MethodSettings: [
+          Match.objectLike({
+            HttpMethod: '*',
+            ResourcePath: '/*',
+            ThrottlingRateLimit: 1000,
+            ThrottlingBurstLimit: 2000,
+          }),
+        ],
+      });
+    });
+
+    it('gives the create-person function 1024 MB', () => {
+      synth('dev').hasResourceProperties('AWS::Lambda::Function', {
+        ...createPerson,
+        MemorySize: 1024,
+      });
+    });
+
+    it.each([
+      ['prod', CREATE_PERSON_RESERVED_CONCURRENCY],
+      ['dev', Match.absent()],
+    ] as const)('in %s reserves %j concurrency for create-person only', (stage, reserved) => {
+      const template = synth(stage);
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        ...createPerson,
+        ReservedConcurrentExecutions: reserved,
+      });
+      template.resourcePropertiesCountIs(
+        'AWS::Lambda::Function',
+        { ReservedConcurrentExecutions: Match.anyValue() },
+        stage === 'prod' ? 1 : 0,
+      );
+    });
+  });
+
   describe('least-privilege table access', () => {
     const tableArn = (logicalIdPrefix: string) => ({
       'Fn::GetAtt': [Match.stringLikeRegexp(`^Storage${logicalIdPrefix}`), 'Arn'],
@@ -165,6 +208,9 @@ describe('PersonServiceStack', () => {
           FilterCriteria: { Filters: [{ Pattern: '{"eventName":["INSERT"]}' }] },
           DynamoDBStreamParameters: {
             StartingPosition: 'LATEST',
+            BatchSize: 100,
+            MaximumBatchingWindowInSeconds: 1,
+            ParallelizationFactor: 10,
             MaximumRetryAttempts: 10,
             OnPartialBatchItemFailure: 'AUTOMATIC_BISECT',
             DeadLetterConfig: { Arn: getAtt('EventsDeadLetterQueue', 'Arn') },
@@ -272,10 +318,18 @@ describe('PersonServiceStack', () => {
       expect(names.sort()).toEqual(
         [
           'person-service-dev-Api5xx',
+          'person-service-dev-ApiNearThrottleLimit',
           'person-service-dev-CreatePersonErrors',
+          'person-service-dev-CreatePersonThrottles',
           'person-service-dev-EventEnrichmentErrors',
+          'person-service-dev-EventEnrichmentThrottles',
           'person-service-dev-GetPersonErrors',
+          'person-service-dev-GetPersonThrottles',
           'person-service-dev-ListPersonsErrors',
+          'person-service-dev-ListPersonsThrottles',
+          'person-service-dev-PersonCreatedThrottled',
+          'person-service-dev-PersonsWriteThrottles',
+          'person-service-dev-PhoneNumbersWriteThrottles',
           'person-service-dev-PipeDeadLetterQueueNotEmpty',
         ].sort(),
       );
@@ -307,6 +361,33 @@ describe('PersonServiceStack', () => {
         MetricName: '5XXError',
         Statistic: 'Sum',
         Threshold: 1,
+      });
+    });
+
+    it('watches throttling of the tables and the pipe', () => {
+      const template = synth('dev');
+      for (const table of ['Persons', 'PhoneNumbers']) {
+        template.hasResourceProperties(ALARM, {
+          AlarmName: `person-service-dev-${table}WriteThrottles`,
+          MetricName: 'WriteThrottleEvents',
+          Dimensions: [
+            { Name: 'TableName', Value: { Ref: Match.stringLikeRegexp(`^Storage${table}`) } },
+          ],
+        });
+      }
+      template.hasResourceProperties(ALARM, {
+        AlarmName: 'person-service-dev-PersonCreatedThrottled',
+        Namespace: 'AWS/EventBridge/Pipes',
+        Dimensions: [{ Name: 'PipeName', Value: { Ref: Match.stringLikeRegexp('^EventsPipe') } }],
+      });
+    });
+
+    it('warns at 80% of the API rate limit over a minute', () => {
+      synth('dev').hasResourceProperties(ALARM, {
+        AlarmName: 'person-service-dev-ApiNearThrottleLimit',
+        MetricName: 'Count',
+        Period: 60,
+        Threshold: 0.8 * API_THROTTLING.rateLimit * 60,
       });
     });
 

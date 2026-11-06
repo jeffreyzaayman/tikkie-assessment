@@ -3,12 +3,15 @@ import type { RestApi } from 'aws-cdk-lib/aws-apigateway';
 import {
   Alarm,
   ComparisonOperator,
+  Metric,
   TreatMissingData,
   type IMetric,
 } from 'aws-cdk-lib/aws-cloudwatch';
 import { SnsAction } from 'aws-cdk-lib/aws-cloudwatch-actions';
+import type { TableV2 } from 'aws-cdk-lib/aws-dynamodb';
 import { PolicyStatement, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import type { IFunction } from 'aws-cdk-lib/aws-lambda';
+import type { CfnPipe } from 'aws-cdk-lib/aws-pipes';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import type { IQueue } from 'aws-cdk-lib/aws-sqs';
@@ -25,6 +28,9 @@ export interface ServiceAlarmsProps {
 
 // Evaluation window for every alarm: short enough to react, long enough for metric delays.
 const PERIOD = Duration.minutes(5);
+
+// Share of the API's rate limit that counts as close to it.
+const NEAR_THROTTLE_LIMIT = 0.8;
 
 /**
  * Minimal alerting for one service: an alarm topic, and single-metric alarms with fixed
@@ -114,6 +120,54 @@ export class ServiceAlarms extends Construct {
       metric: api.metricServerError({ period: PERIOD, statistic: 'Sum' }),
       threshold: 1,
       description: 'The API returned a 5XX response',
+    });
+  }
+
+  // Alarms when Lambda throttles any invocation: reserved or account concurrency ran out.
+  public lambdaThrottles(id: string, fn: IFunction): Alarm {
+    return this.add(`${id}Throttles`, {
+      metric: fn.metricThrottles({ period: PERIOD, statistic: 'Sum' }),
+      threshold: 1,
+      description: `The ${id} Lambda was throttled: raise its concurrency or the account quota`,
+    });
+  }
+
+  /*
+   * Alarms when one minute's requests reach 80% of the stage's rate limit. REST APIs publish no
+   * metric for throttled (429) requests, and 4XXError also counts the expected 400/404/409s, so
+   * this warns before clients are throttled instead.
+   */
+  public apiNearThrottleLimit(id: string, api: RestApi, rateLimit: number): Alarm {
+    const period = Duration.minutes(1);
+    return this.add(`${id}NearThrottleLimit`, {
+      metric: api.metricCount({ period, statistic: 'Sum' }),
+      threshold: Math.round(rateLimit * period.toSeconds() * NEAR_THROTTLE_LIMIT),
+      description: `The API averaged over ${NEAR_THROTTLE_LIMIT * 100}% of its ${rateLimit} rps throttling limit for a minute`,
+    });
+  }
+
+  // Alarms when DynamoDB throttles any write to the table.
+  public tableWriteThrottles(id: string, table: TableV2): Alarm {
+    return this.add(`${id}WriteThrottles`, {
+      metric: table.metric('WriteThrottleEvents', { period: PERIOD, statistic: 'Sum' }),
+      threshold: 1,
+      description: `DynamoDB throttled writes to the ${id} table`,
+    });
+  }
+
+  // Alarms when the Pipe is throttled: events are delayed, and the stream keeps them only 24h.
+  public pipeThrottled(id: string, pipe: CfnPipe): Alarm {
+    return this.add(`${id}Throttled`, {
+      metric: new Metric({
+        namespace: 'AWS/EventBridge/Pipes',
+        metricName: 'ExecutionThrottled',
+        // Ref of a pipe is its name.
+        dimensionsMap: { PipeName: pipe.ref },
+        period: PERIOD,
+        statistic: 'Sum',
+      }),
+      threshold: 1,
+      description: `The ${id} pipe was throttled: events are delayed`,
     });
   }
 

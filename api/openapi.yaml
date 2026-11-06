@@ -13,7 +13,7 @@ info:
     Postman's "AWS Signature" auth or an AWS SDK; the "Try it out" button in Swagger UI
     can't sign requests.
 
-    **Throttling:** 10 requests per second per stage, bursts up to 20. Above that the API returns `429`.
+    **Throttling:** 1000 requests per second per stage, bursts up to 2000. Above that the API returns `429`.
 
     **Personal data:** requests and responses contain names, phone numbers and addresses.
     Error messages never echo submitted values.
@@ -111,6 +111,22 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500": &a3
           $ref: "#/components/responses/InternalServerError"
+        "503":
+          description: The database is throttling, or a concurrent request wrote the same phone number. Nothing was stored; send the same request again after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                busy:
+                  value:
+                    message: Service is busy, retry later
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying
+              schema:
+                type: integer
+                example: 1
     get:
       tags:
         - Persons
@@ -326,7 +342,7 @@ components:
               value:
                 message: Missing Authentication Token
     TooManyRequests:
-      description: Throttled by API Gateway (10 requests per second per stage, bursts up to 20)
+      description: Throttled by API Gateway (1000 requests per second per stage, bursts up to 2000)
       content:
         application/json:
           schema:

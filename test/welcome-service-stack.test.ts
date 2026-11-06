@@ -109,7 +109,7 @@ describe('WelcomeServiceStack', () => {
     });
   });
 
-  it('runs the welcome Lambda from the queue, reporting failed messages individually', () => {
+  it('runs at most 50 welcome Lambdas from the queue, reporting failed messages individually', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::Lambda::Function', {
       Runtime: 'nodejs24.x',
@@ -121,6 +121,7 @@ describe('WelcomeServiceStack', () => {
     template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
       EventSourceArn: getAtt('Queue'),
       BatchSize: 10,
+      ScalingConfig: { MaximumConcurrency: 50 },
       FunctionResponseTypes: ['ReportBatchItemFailures'],
     });
   });
@@ -166,7 +167,7 @@ describe('WelcomeServiceStack', () => {
     });
   });
 
-  it('alarms on both dead-letter queues and on a stuck consumer', () => {
+  it('alarms on both dead-letter queues, a stuck consumer and throttling', () => {
     const template = synth('dev');
     const alarm = (name: string, metric: string, queue: string, threshold: number) =>
       template.hasResourceProperties('AWS::CloudWatch::Alarm', {
@@ -181,7 +182,7 @@ describe('WelcomeServiceStack', () => {
         ],
         AlarmActions: [{ Ref: Match.stringLikeRegexp('^AlarmsTopic') }],
       });
-    template.resourceCountIs('AWS::CloudWatch::Alarm', 3);
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 5);
     alarm('DeadLetterQueueNotEmpty', 'ApproximateNumberOfMessagesVisible', 'DeadLetterQueue', 1);
     alarm(
       'SubscriptionDeadLetterQueueNotEmpty',
@@ -190,6 +191,14 @@ describe('WelcomeServiceStack', () => {
       1,
     );
     alarm('QueueOldestMessage', 'ApproximateAgeOfOldestMessage', 'Queue', 300);
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'welcome-service-dev-WelcomeThrottles',
+      MetricName: 'Throttles',
+    });
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'welcome-service-dev-ProcessedEventsWriteThrottles',
+      MetricName: 'WriteThrottleEvents',
+    });
   });
 
   it('tags resources with the welcome-service name and stage', () => {

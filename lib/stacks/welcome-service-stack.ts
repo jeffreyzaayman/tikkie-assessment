@@ -21,6 +21,9 @@ export interface WelcomeServiceStackProps extends StackProps {
 // Retries before a message moves to the dead-letter queue.
 const MAX_RECEIVE_COUNT = 5;
 
+// Most concurrent welcome Lambdas the SQS event source starts.
+const WELCOME_MAX_CONCURRENCY = 50;
+
 /**
  * Demo consumer in the microservice landscape: a Welcome Service that reacts to new persons.
  *
@@ -117,9 +120,17 @@ export class WelcomeServiceStack extends Stack {
     // Claim an eventId (conditional put) and release it if the welcome fails; nothing else.
     this.processedEvents.grant(this.welcomeFunction, 'dynamodb:PutItem', 'dynamodb:DeleteItem');
 
-    // Report failed messages individually, so one bad message doesn't retry the whole batch.
+    /*
+     * Report failed messages individually, so one bad message doesn't retry the whole batch.
+     * maxConcurrency caps how much of the account's Lambda concurrency a burst of new persons
+     * takes; the queue holds the rest. At ~100 ms per batch of 10 that is still ~5000 messages/s.
+     */
     this.welcomeFunction.addEventSource(
-      new SqsEventSource(this.queue, { batchSize: 10, reportBatchItemFailures: true }),
+      new SqsEventSource(this.queue, {
+        batchSize: 10,
+        maxConcurrency: WELCOME_MAX_CONCURRENCY,
+        reportBatchItemFailures: true,
+      }),
     );
 
     this.alarms = new ServiceAlarms(this, 'Alarms', {
@@ -138,6 +149,8 @@ export class WelcomeServiceStack extends Stack {
       'SNS could not deliver a person-created event to the queue: check the queue policy',
     );
     this.alarms.queueBacklogTooOld('Queue', this.queue, Duration.minutes(5));
+    this.alarms.lambdaThrottles('Welcome', this.welcomeFunction);
+    this.alarms.tableWriteThrottles('ProcessedEvents', this.processedEvents);
 
     new CfnOutput(this, 'QueueUrl', { value: this.queue.queueUrl });
   }

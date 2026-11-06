@@ -43,12 +43,13 @@ flowchart LR
 
 ### How a person is created
 
-1. API Gateway checks the caller's IAM signature and throttles the stage (10 rps, burst 20).
+1. API Gateway checks the caller's IAM signature and throttles the stage (1000 rps, burst 2000).
 2. `CreatePerson` validates and trims the body, and normalises the phone number to E.164
    (`06 12345678` → `+31612345678`; numbers without a country code are read as Dutch).
 3. In one DynamoDB transaction it writes the person to `persons` and claims the phone number in
    `phoneNumbers`. If the number is already taken, the transaction fails and the API returns
-   `409`, so no race can create a duplicate.
+   `409`, so no race can create a duplicate. If DynamoDB throttles, or a concurrent request
+   wrote the same item, nothing is stored and the API returns `503` with `Retry-After`.
 4. The `persons` table stream feeds an EventBridge Pipe. The Pipe keeps only `INSERT`s, turns
    each one into a `PersonCreated` event (enrichment Lambda) and publishes it to SNS.
 
@@ -217,9 +218,25 @@ resource is tagged with `Service` and `Stage`.
 ## Operations
 
 - **Scaling:** Lambda, API Gateway, on-demand DynamoDB, Pipes, SNS and SQS all scale with traffic
-  and cost close to nothing when idle. There are no servers or capacity settings to manage.
-- **Alarms:** each service has its own alarm topic. Alarms fire on Lambda errors, API 5XX
-  responses, any message in a dead-letter queue, and a Welcome queue backlog older than 5 minutes.
+  and cost close to nothing when idle. There are no servers to manage.
+- **Bursts:** sized for bursts of 1000 new persons per second:
+  - API Gateway throttles the stage at 1000 rps, bursts up to 2000.
+  - `CreatePerson` has 1024 MB (more CPU, so fewer instances are needed), and in prod 500
+    reserved concurrency, which is also its maximum.
+  - On-demand tables take 4,000 writes/s from the start. A create costs 2 write units per table
+    (transactions cost double), so a burst of 2000 creates/s still fits.
+  - The Pipe reads batches of 100 records, 10 batches per stream shard in parallel.
+  - The Welcome consumer runs at most 50 Lambdas; the queue absorbs the rest of a burst.
+
+  Before relying on this, check the Lambda concurrency quota of each account
+  (`aws lambda get-account-settings`): prod needs at least 600 for the reservation (AWS keeps
+  100 unreserved), and new accounts often start much lower. Then load-test dev with SigV4-signed
+  requests.
+
+- **Alarms:** each service has its own alarm topic. Alarms fire on Lambda errors and throttles,
+  API 5XX responses, API traffic above 80% of the rate limit, DynamoDB write throttling, Pipe
+  throttling, any message in a dead-letter queue, and a Welcome queue backlog older than
+  5 minutes.
 - **Logs:** structured JSON, kept for one month. Handlers log ids and error names only, never
   names, phone numbers or addresses. The Pipe logs errors only, without the record contents.
 - **Security:** IAM auth on every method, least-privilege grants (for example, `CreatePerson` may

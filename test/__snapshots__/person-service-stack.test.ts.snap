@@ -102,6 +102,47 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
       },
       "Type": "AWS::CloudWatch::Alarm",
     },
+    "AlarmsApiNearThrottleLimit0C43C674": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The API averaged over 80% of its 1000 rps throttling limit for a minute",
+        "AlarmName": "person-service-dev-ApiNearThrottleLimit",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "ApiName",
+            "Value": "person-service-dev",
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Count",
+        "Namespace": "AWS/ApiGateway",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 60,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 48000,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
     "AlarmsCreatePersonErrors0506269E": {
       "Properties": {
         "AlarmActions": [
@@ -122,6 +163,49 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
         ],
         "EvaluationPeriods": 1,
         "MetricName": "Errors",
+        "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsCreatePersonThrottlesD7F385FF": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The CreatePerson Lambda was throttled: raise its concurrency or the account quota",
+        "AlarmName": "person-service-dev-CreatePersonThrottles",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "ApiCreatePersonFunctionF3013DE6",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Throttles",
         "Namespace": "AWS/Lambda",
         "OKActions": [
           {
@@ -188,6 +272,49 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
       },
       "Type": "AWS::CloudWatch::Alarm",
     },
+    "AlarmsEventEnrichmentThrottles7D07923E": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The EventEnrichment Lambda was throttled: raise its concurrency or the account quota",
+        "AlarmName": "person-service-dev-EventEnrichmentThrottles",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "EventsEnrichmentFunctionF50DC9E5",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Throttles",
+        "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
     "AlarmsGetPersonErrors0A607E9F": {
       "Properties": {
         "AlarmActions": [
@@ -208,6 +335,49 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
         ],
         "EvaluationPeriods": 1,
         "MetricName": "Errors",
+        "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsGetPersonThrottlesA8E1AC3F": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The GetPerson Lambda was throttled: raise its concurrency or the account quota",
+        "AlarmName": "person-service-dev-GetPersonThrottles",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "ApiGetPersonFunctionFA26DBF2",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Throttles",
         "Namespace": "AWS/Lambda",
         "OKActions": [
           {
@@ -252,6 +422,178 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
         "EvaluationPeriods": 1,
         "MetricName": "Errors",
         "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsListPersonsThrottles08293B55": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The ListPersons Lambda was throttled: raise its concurrency or the account quota",
+        "AlarmName": "person-service-dev-ListPersonsThrottles",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "ApiListPersonsFunctionE1783E4C",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Throttles",
+        "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsPersonCreatedThrottledE33A46E6": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The PersonCreated pipe was throttled: events are delayed",
+        "AlarmName": "person-service-dev-PersonCreatedThrottled",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "PipeName",
+            "Value": {
+              "Ref": "EventsPipe11815F2B",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "ExecutionThrottled",
+        "Namespace": "AWS/EventBridge/Pipes",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsPersonsWriteThrottlesFA77AA7D": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "DynamoDB throttled writes to the Persons table",
+        "AlarmName": "person-service-dev-PersonsWriteThrottles",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": {
+              "Ref": "StoragePersons0FDB3F49",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "WriteThrottleEvents",
+        "Namespace": "AWS/DynamoDB",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "person-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
+    "AlarmsPhoneNumbersWriteThrottlesC484EE38": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "DynamoDB throttled writes to the PhoneNumbers table",
+        "AlarmName": "person-service-dev-PhoneNumbersWriteThrottles",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": {
+              "Ref": "StoragePhoneNumbers457D5796",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "WriteThrottleEvents",
+        "Namespace": "AWS/DynamoDB",
         "OKActions": [
           {
             "Ref": "AlarmsTopic3A2DFEBA",
@@ -473,7 +815,7 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
             "Ref": "ApiCreatePersonLogs6250D99F",
           },
         },
-        "MemorySize": 256,
+        "MemorySize": 1024,
         "Role": {
           "Fn::GetAtt": [
             "ApiCreatePersonFunctionServiceRole7CEF59BD",
@@ -620,8 +962,8 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
             "DataTraceEnabled": false,
             "HttpMethod": "*",
             "ResourcePath": "/*",
-            "ThrottlingBurstLimit": 20,
-            "ThrottlingRateLimit": 10,
+            "ThrottlingBurstLimit": 2000,
+            "ThrottlingRateLimit": 1000,
           },
         ],
         "RestApiId": {
@@ -1480,7 +1822,7 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
         },
         "SourceParameters": {
           "DynamoDBStreamParameters": {
-            "BatchSize": 10,
+            "BatchSize": 100,
             "DeadLetterConfig": {
               "Arn": {
                 "Fn::GetAtt": [
@@ -1489,8 +1831,10 @@ exports[`PersonServiceStack > matches the synthesised template snapshot 1`] = `
                 ],
               },
             },
+            "MaximumBatchingWindowInSeconds": 1,
             "MaximumRetryAttempts": 10,
             "OnPartialBatchItemFailure": "AUTOMATIC_BISECT",
+            "ParallelizationFactor": 10,
             "StartingPosition": "LATEST",
           },
           "FilterCriteria": {

@@ -67,6 +67,49 @@ exports[`WelcomeServiceStack > matches the synthesised template snapshot 1`] = `
       },
       "Type": "AWS::CloudWatch::Alarm",
     },
+    "AlarmsProcessedEventsWriteThrottles48E1C795": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "DynamoDB throttled writes to the ProcessedEvents table",
+        "AlarmName": "welcome-service-dev-ProcessedEventsWriteThrottles",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": {
+              "Ref": "ProcessedEvents7CA3C580",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "WriteThrottleEvents",
+        "Namespace": "AWS/DynamoDB",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
     "AlarmsQueueOldestMessage41BB9BA6": {
       "Properties": {
         "AlarmActions": [
@@ -235,6 +278,49 @@ exports[`WelcomeServiceStack > matches the synthesised template snapshot 1`] = `
         ],
       },
       "Type": "AWS::SNS::TopicPolicy",
+    },
+    "AlarmsWelcomeThrottlesBE56BCA1": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "AlarmDescription": "The Welcome Lambda was throttled: raise its concurrency or the account quota",
+        "AlarmName": "welcome-service-dev-WelcomeThrottles",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "WelcomeFunctionBFCFA9C3",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Throttles",
+        "Namespace": "AWS/Lambda",
+        "OKActions": [
+          {
+            "Ref": "AlarmsTopic3A2DFEBA",
+          },
+        ],
+        "Period": 300,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": "welcome-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
     },
     "DeadLetterQueue9F481546": {
       "DeletionPolicy": "Delete",
@@ -674,6 +760,9 @@ exports[`WelcomeServiceStack > matches the synthesised template snapshot 1`] = `
         "FunctionResponseTypes": [
           "ReportBatchItemFailures",
         ],
+        "ScalingConfig": {
+          "MaximumConcurrency": 50,
+        },
         "Tags": [
           {
             "Key": "Service",

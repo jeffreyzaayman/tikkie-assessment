@@ -1,6 +1,6 @@
 import { CfnOutput, Stack, Tags, type StackProps } from 'aws-cdk-lib';
 import type { Construct } from 'constructs';
-import { PersonApi } from '../person-api';
+import { API_THROTTLING, PersonApi } from '../person-api';
 import { PersonEvents } from '../person-events';
 import { PersonStorage } from '../person-storage';
 import { ServiceAlarms } from '../service-alarms';
@@ -49,10 +49,20 @@ export class PersonServiceStack extends Stack {
       'A person-created event could not be published: reprocess from the stream within 24h',
     );
     this.alarms.apiServerErrors('Api', this.api.api);
-    this.alarms.lambdaErrors('CreatePerson', this.api.createPersonFunction);
-    this.alarms.lambdaErrors('GetPerson', this.api.getPersonFunction);
-    this.alarms.lambdaErrors('ListPersons', this.api.listPersonsFunction);
-    this.alarms.lambdaErrors('EventEnrichment', this.events.enrichmentFunction);
+    this.alarms.apiNearThrottleLimit('Api', this.api.api, API_THROTTLING.rateLimit);
+    const functions = {
+      CreatePerson: this.api.createPersonFunction,
+      GetPerson: this.api.getPersonFunction,
+      ListPersons: this.api.listPersonsFunction,
+      EventEnrichment: this.events.enrichmentFunction,
+    };
+    for (const [id, fn] of Object.entries(functions)) {
+      this.alarms.lambdaErrors(id, fn);
+      this.alarms.lambdaThrottles(id, fn);
+    }
+    this.alarms.tableWriteThrottles('Persons', this.storage.persons);
+    this.alarms.tableWriteThrottles('PhoneNumbers', this.storage.phoneNumbers);
+    this.alarms.pipeThrottled('PersonCreated', this.events.pipe);
 
     new CfnOutput(this, 'ApiUrl', { value: this.api.api.url });
     new CfnOutput(this, 'PersonCreatedTopicArn', { value: this.events.topic.topicArn });

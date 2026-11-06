@@ -9,6 +9,25 @@ const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 const PHONE_ITEM_INDEX = 1;
 
+// Seconds a client waits before retrying a 503, sent as the Retry-After header.
+const RETRY_AFTER_SECONDS = '1';
+
+/*
+ * Failures that are over once traffic drops: throttling the SDK gave up retrying, and transactions
+ * cancelled by a throttled item or a concurrent write to the same item (the SDK doesn't retry
+ * cancelled transactions).
+ */
+const RETRYABLE_ERROR_NAMES = new Set([
+  'ThrottlingException',
+  'ProvisionedThroughputExceededException',
+  'RequestLimitExceeded',
+]);
+const RETRYABLE_CANCELLATION_CODES = new Set([
+  'ThrottlingError',
+  'ProvisionedThroughputExceeded',
+  'TransactionConflict',
+]);
+
 export async function handler(
   event: APIGatewayProxyEvent,
   context: Context,
@@ -54,6 +73,21 @@ export async function handler(
     if (isDuplicatePhoneNumber(error)) {
       return json(409, { message: 'A person with this phone number already exists' });
     }
+    if (isRetryable(error)) {
+      // Nothing was written, so the client can safely send the same request again.
+      console.warn(
+        JSON.stringify({
+          message: 'Create person throttled or conflicted, asked the client to retry',
+          errorName: error instanceof Error ? error.name : 'Unknown',
+          awsRequestId: context.awsRequestId,
+        }),
+      );
+      return json(
+        503,
+        { message: 'Service is busy, retry later' },
+        { 'Retry-After': RETRY_AFTER_SECONDS },
+      );
+    }
     // Log only non-PII metadata: never the request body or person fields.
     console.error(
       JSON.stringify({
@@ -89,4 +123,13 @@ function isDuplicatePhoneNumber(error: unknown): boolean {
     error instanceof TransactionCanceledException &&
     error.CancellationReasons?.[PHONE_ITEM_INDEX]?.Code === 'ConditionalCheckFailed'
   );
+}
+
+function isRetryable(error: unknown): boolean {
+  if (error instanceof TransactionCanceledException) {
+    return (error.CancellationReasons ?? []).some(
+      (reason) => reason.Code !== undefined && RETRYABLE_CANCELLATION_CODES.has(reason.Code),
+    );
+  }
+  return error instanceof Error && RETRYABLE_ERROR_NAMES.has(error.name);
 }
